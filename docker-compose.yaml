@@ -1,0 +1,16 @@
+services:
+  app:
+    build:
+      context: .
+    container_name: handbrake-daemon-worker
+    volumes:
+      - .:/workspaces/handbrake-daemon
+      - /media/libo/Videos/Transcode:/workspaces/handbrake-daemon/assets
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    entrypoint: ["python", "-m", "handbrake_daemon.worker"]
