@@ -1,6 +1,4 @@
-gitdb==4.0.11
-GitPython==3.1.41
-pathlib-extensions @ git+https://github.com/liboyin/pathlib-extensions.git@a9fdc31ab56b86ed82dccea6212fc1394d0b26f0
+pathlib-extensions @ git+https://github.com/liboyin/pathlib-extensions.git@3887db2be19b873538cba77f044b227311514fbc
 pymediainfo==6.1.0
-setuptools==69.0.3
-smmap==5.0.1
+setuptools==68.1.2
+wheel==0.42.0
