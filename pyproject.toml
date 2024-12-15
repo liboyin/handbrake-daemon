@@ -31,3 +31,6 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 warn_unused_configs = true
 strict_optional = true
+
+[tool.setuptools.packages]
+find = {where = ["handbrake_daemon"]}

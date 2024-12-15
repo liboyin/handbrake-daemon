@@ -7,7 +7,7 @@ from typing import Iterator, Tuple
 from pathlib_extensions import prepare_input_dir, prepare_input_file, prepare_output_file
 from pymediainfo import MediaInfo
 
-PROJECT_ROOT = Path(__file__).parent
+PROJECT_ROOT = Path(__file__).parents[1]
 HANDBRAKE_CONFIG = PROJECT_ROOT / "H264 NVENC CQ27.json"
 
 
