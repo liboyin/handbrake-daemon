@@ -13,4 +13,5 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+    runtime: nvidia
     entrypoint: ["python", "-m", "handbrake_daemon.worker"]
