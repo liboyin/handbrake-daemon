@@ -17,4 +17,15 @@ if [ -f "requirements.txt" ]; then
     pip --disable-pip-version-check --no-cache-dir install -r requirements.txt
 fi
 pip --disable-pip-version-check --no-cache-dir install -e .
-rm -rf /tmp/pip-tmp
+
+pip_cache_dirs=(
+    "/tmp/pip-tmp"
+    "$HOME/.cache/pip"
+    "$XDG_CACHE_HOME/pip"
+)
+for dir_path in "${pip_cache_dirs[@]}"; do
+    if [ -d "$dir_path" ]; then
+        echo "Removing pip cache dir: $dir_path"
+        rm -rf "$dir_path"
+    fi
+done
