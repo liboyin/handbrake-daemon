@@ -18,10 +18,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "ipython",
-  "pytest",
-  "pytest-cov",
-  "pytest-mock",
-  "pytest-randomly",
+  "mypy",
 ]
 
 [tool.mypy]
