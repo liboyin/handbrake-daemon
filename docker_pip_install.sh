@@ -14,9 +14,10 @@ fi
 
 # Pin dependency versions by installing from the lock file before installing this project
 if [ -f "requirements.txt" ]; then
-    pip --disable-pip-version-check --no-cache-dir install -r requirements.txt
+    pip --disable-pip-version-check --no-cache-dir install -r requirements.txt --break-system-packages
 fi
-pip --disable-pip-version-check --no-cache-dir install -e .
+pip --disable-pip-version-check --no-cache-dir install -e . --break-system-packages
+# TODO: move pip flags to the config file
 
 pip_cache_dirs=(
     "/tmp/pip-tmp"

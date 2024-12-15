@@ -1,11 +1,16 @@
 {
     "dockerComposeFile": "../docker-compose.yaml",
     "service": "app",
+    "features": {
+        "ghcr.io/devcontainers/features/common-utils:2":{
+            "configureZshAsDefaultShell": "true"
+        }
+    },
     "overrideCommand": true,
-    "remoteUser": "vscode",
+    "remoteUser": "ubuntu",
     "workspaceFolder": "/workspaces/handbrake-daemon",
     "mounts": [
-        "source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,type=bind"
+        "source=${localEnv:HOME}/.ssh,target=/home/ubuntu/.ssh,type=bind"
     ],
     "postCreateCommand": "chmod +x .devcontainer/postCreateCommand.sh && ./.devcontainer/postCreateCommand.sh",
     "customizations": {

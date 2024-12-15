@@ -8,6 +8,6 @@ if [ -n "$APT_PROXY" ]; then
 fi
 
 apt-get update
-apt-get install -y --no-install-recommends handbrake-cli mediainfo
+apt-get install -y --no-install-recommends git handbrake-cli mediainfo pip
 apt-get clean
 rm -rf /var/lib/apt/lists/*
