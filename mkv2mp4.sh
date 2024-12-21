@@ -3,6 +3,7 @@
 # Use the provided argument for the directory, or fallback to the default directory
 MONITOR_DIR_PATH="${1:-assets}"
 PRESET_FILE_PATH="H264 NVENC CQ27.json"
+echo "Monitoring MKV files in $MONITOR_DIR_PATH"
 
 while true; do
     file_found=false

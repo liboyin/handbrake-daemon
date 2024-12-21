@@ -9,7 +9,7 @@ no-cache-dir = true
 root-user-action = ignore
 EOF
 
-# Configure PyPI proxy
+# Configure PyPI proxy if defined
 if [ -n "$PYPI_PROXY" ]; then
     cat <<EOF >> "$PIP_CONF_PATH"
 index-url = $PYPI_PROXY
@@ -30,6 +30,7 @@ if [ -f "requirements.txt" ]; then
 fi
 pip install -e .
 
+# Remove pip cache
 pip_cache_dirs=(
     "/tmp/pip-tmp"
     "$HOME/.cache/pip"
