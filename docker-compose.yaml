@@ -14,4 +14,4 @@ services:
               count: all
               capabilities: [gpu]
     runtime: nvidia
-    entrypoint: ["python", "-m", "handbrake_daemon.worker"]
+    entrypoint: ["python", "handbrake_daemon"]
