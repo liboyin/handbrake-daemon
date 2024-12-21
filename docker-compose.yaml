@@ -6,12 +6,5 @@ services:
     volumes:
       - .:/workspaces/handbrake-daemon
       - /media/libo/Videos/Transcode:/workspaces/handbrake-daemon/assets
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
     runtime: nvidia
     entrypoint: ["python3", "handbrake_daemon"]
