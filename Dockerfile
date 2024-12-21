@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
 
 ARG APT_PROXY=http://192.168.0.4:3142
 ARG PYPI_PROXY=http://192.168.0.4:3141/root/pypi/+simple/
