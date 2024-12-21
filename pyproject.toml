@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "handbrake-daemon"
 version = "0.0.1"
 description = "Monitors for video files and runs transcode with HandBrake"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 authors = [
   {name = "Libo Yin", email = "liboyin830@gmail.com"}
 ]

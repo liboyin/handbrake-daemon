@@ -12,11 +12,16 @@ EOF
     cat "$PIP_CONF_PATH"
 fi
 
+# pyproject.toml requires setuptools >= 64 but python3-setuptools is too old on APT
+curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+python3 get-pip.py
+rm get-pip.py
+
 # Pin dependency versions by installing from the lock file before installing this project
 if [ -f "requirements.txt" ]; then
-    pip --disable-pip-version-check --no-cache-dir install -r requirements.txt --break-system-packages
+    pip --disable-pip-version-check --no-cache-dir install -r requirements.txt
 fi
-pip --disable-pip-version-check --no-cache-dir install -e . --break-system-packages
+pip --disable-pip-version-check --no-cache-dir install -e .
 # TODO: move pip flags to the config file
 
 pip_cache_dirs=(
