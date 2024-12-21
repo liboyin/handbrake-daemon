@@ -1,16 +1,23 @@
 #!/bin/bash
 
+PIP_CONF_PATH=$HOME/.pip/pip.conf
+mkdir -p "$(dirname "$PIP_CONF_PATH")"
+cat <<EOF > "$PIP_CONF_PATH"
+[global]
+disable-pip-version-check = true
+no-cache-dir = true
+root-user-action = ignore
+EOF
+
 # Configure PyPI proxy
 if [ -n "$PYPI_PROXY" ]; then
-    PIP_CONF_PATH=$HOME/.pip/pip.conf
-    mkdir -p "$(dirname "$PIP_CONF_PATH")"
-    cat <<EOF > "$PIP_CONF_PATH"
-[global]
+    cat <<EOF >> "$PIP_CONF_PATH"
 index-url = $PYPI_PROXY
 trusted-host = $(echo "$PYPI_PROXY" | sed -E 's|https?://([^:/]+).*|\1|')
 EOF
-    cat "$PIP_CONF_PATH"
 fi
+
+cat "$PIP_CONF_PATH"
 
 # pyproject.toml requires setuptools >= 64 but python3-setuptools is too old on APT
 curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
@@ -19,10 +26,9 @@ rm get-pip.py
 
 # Pin dependency versions by installing from the lock file before installing this project
 if [ -f "requirements.txt" ]; then
-    pip --disable-pip-version-check --no-cache-dir install -r requirements.txt
+    pip install -r requirements.txt
 fi
-pip --disable-pip-version-check --no-cache-dir install -e .
-# TODO: move pip flags to the config file
+pip install -e .
 
 pip_cache_dirs=(
     "/tmp/pip-tmp"
