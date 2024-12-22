@@ -7,4 +7,3 @@ services:
       - .:/workspaces/handbrake-daemon
       - /media/libo/Videos/Transcode:/workspaces/handbrake-daemon/assets
     runtime: nvidia
-    entrypoint: ["python", "handbrake_daemon"]
