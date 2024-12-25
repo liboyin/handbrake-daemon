@@ -30,12 +30,13 @@ def is_h264_encoded(file_path: Path) -> bool:
     raise ValueError(f"No video track found in {file_path}")
 
 
-def get_output_file_path_for_mp4(input_file_path: Path) -> Path | None:
+def get_output_file_path_for_mp4(input_file_path: Path, max_retries: int = 5) -> Path | None:
     """
     Generate HandBrake output file path for MP4 files.
 
     Args:
         input_file_path (Path): Path to the input MP4 file.
+        max_retries (int, optional): Maximum number of retries to find a unique filename. Defaults to 5.
 
     Returns:
         Path | None: Path for the output file, or None if no transcoding is needed.
@@ -47,7 +48,7 @@ def get_output_file_path_for_mp4(input_file_path: Path) -> Path | None:
         print("MP4 file is already encoded in H264:", input_file_path)
         return None
     counter = 1
-    while True:
+    while counter <= max_retries:
         new_path = input_file_path.with_suffix(f".{counter}.mp4")
         if not new_path.exists():
             return new_path
@@ -56,6 +57,7 @@ def get_output_file_path_for_mp4(input_file_path: Path) -> Path | None:
             print(f"A subsequent file encoded in H264 already exists: {input_file_path} -> {new_path}")
             return None
         counter += 1
+    return None
 
 
 def get_output_file_path_for_mkv(input_file_path: Path) -> Path | None:
