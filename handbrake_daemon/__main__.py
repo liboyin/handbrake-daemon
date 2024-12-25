@@ -79,10 +79,20 @@ def transcode_video_file(input_file_path: Path, output_file_path: Path, config_f
     subprocess.run(command, check=True)
 
 
+def get_video_duration_seconds(file_path: Path) -> int:
+    for track in MediaInfo.parse(file_path).tracks:
+        if track.track_type == "Video":
+            return track.duration // 1000
+    raise ValueError(f"No video track found in {file_path}")
+
+
 def monitor_and_transcode(*dir_paths: Path, check_interval_seconds: float = 60) -> None:
     while True:
         for input_file_path, output_file_path in chain.from_iterable(map(yield_transcode_tasks, dir_paths)):
             transcode_video_file(input_file_path, output_file_path)
+            input_duration = get_video_duration_seconds(input_file_path)
+            output_duration = get_video_duration_seconds(output_file_path)
+            assert input_duration == output_duration, (input_duration, output_duration)
         print(f"Sleeping for {check_interval_seconds} seconds...")
         time.sleep(check_interval_seconds)
 
