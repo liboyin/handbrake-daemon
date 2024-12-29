@@ -11,6 +11,49 @@ PROJECT_ROOT = Path(__file__).parents[1]
 HANDBRAKE_CONFIG = PROJECT_ROOT / "H264 NVENC CQ27.json"
 
 
+def wait_until_file_stable(file_path: Path, check_interval_seconds: float = 1, stability_duration_seconds: float = 5, timeout_seconds: float = 60) -> bool:
+    """
+    Block until a file is no longer being changed by monitoring size and modification time.
+
+    Args:
+        file_path (Path): Path to the file to be checked.
+        check_interval_seconds (float, optional): Time between checks in seconds (default 1 second).
+        stability_duration_seconds (float, optional): How long the file must be unchanged before considering it stable (default 5 seconds).
+        timeout_seconds (float, optional): Maximum time to wait for the file to stabilize (default 60 seconds).
+
+    Returns:
+        bool: True if the file has stabilized, False if the file is inaccessible.
+    """
+    if not file_path.is_file():
+        return False
+    try:
+        stable_since = None
+        last_size = None
+        last_mtime = None
+        start_time = time.time()
+        while True:
+            if time.time() - start_time >= timeout_seconds:
+                print(f"Timeout waiting for file to stabilize: {file_path}")
+                return False
+            current_stat = file_path.stat()
+            current_size = current_stat.st_size
+            current_mtime = current_stat.st_mtime
+            if last_size == current_size and last_mtime == current_mtime:
+                if stable_since is None:
+                    stable_since = time.time()
+                elif time.time() - stable_since >= stability_duration_seconds:
+                    print(f"File has stabilized: {file_path}")
+                    return True
+            else:
+                stable_since = None
+            last_size = current_size
+            last_mtime = current_mtime
+            time.sleep(check_interval_seconds)
+    except (OSError, FileNotFoundError) as e:
+        print(f"Ignoring file {file_path} due to error: {e}")
+        return False
+
+
 def is_h264_encoded(file_path: Path) -> bool:
     """
     Check if a video file is encoded in H264/AVC format.
@@ -114,7 +157,7 @@ def yield_transcode_tasks(dir_path: Path) -> Iterator[Tuple[Path, Path]]:
     prepare_input_dir(dir_path)
     for suffix in (".mkv", ".mp4"):
         for input_file_path in dir_path.glob(f"**/*{suffix}"):
-            if output_file_path := get_output_file_path(input_file_path):
+            if wait_until_file_stable(input_file_path) and (output_file_path := get_output_file_path(input_file_path)):
                 yield input_file_path, output_file_path
 
 
