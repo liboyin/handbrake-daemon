@@ -28,7 +28,7 @@ python get-pip.py
 rm get-pip.py
 
 # Pin dependency versions by installing from the lock file before installing this project
-if [ -f "requirements.txt" ]; then
+if [ -s "requirements.txt" ]; then
     pip install -r requirements.txt
 fi
 pip install -e .
