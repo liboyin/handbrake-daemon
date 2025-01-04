@@ -8,6 +8,7 @@ cat <<EOF > "$PIP_CONF_PATH"
 [global]
 disable-pip-version-check = true
 no-cache-dir = true
+no-compile = true
 root-user-action = ignore
 EOF
 
