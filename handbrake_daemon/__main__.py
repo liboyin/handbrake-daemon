@@ -185,20 +185,20 @@ def transcode_video_file(input_file_path: Path, output_file_path: Path, config_f
 
 def get_video_duration(file_path: Path) -> int:
     """
-    Get the duration of a video file in seconds.
+    Get the duration of a video file in milliseconds.
 
     Args:
         file_path (Path): Path to the video file.
 
     Returns:
-        int: Duration of the video in seconds.
+        int: Duration of the video in milliseconds.
 
     Raises:
         ValueError: If no video track is found in the file.
     """
     for track in MediaInfo.parse(file_path).tracks:
         if track.track_type == "Video":
-            return track.duration // 1000
+            return int(float(track.duration))  # duration might look like '3614866.000000'
     raise ValueError(f"No video track found in {file_path}")
 
 

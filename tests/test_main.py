@@ -66,7 +66,7 @@ def test_yield_transcode_tasks(mocker, tmp_path):
 def test_get_video_duration(mocker, tmp_path):
     mocker.patch.object(testee, "prepare_input_file", lambda x: x)
     mocker.patch.object(testee.MediaInfo, "parse", return_value=Mock(tracks=[Mock(track_type="Video", duration=5000)]))
-    assert testee.get_video_duration(tmp_path / "test.mp4") == 5
+    assert testee.get_video_duration(tmp_path / "test.mp4") == 5000
 
 
 def test_get_video_duration_no_video_track(mocker, tmp_path):
