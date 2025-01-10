@@ -55,7 +55,7 @@ def wait_until_file_stable(file_path: Path, check_interval_seconds: float = 1, s
         return False
 
 
-def is_h264_encoded(file_path: Path) -> bool:
+def is_h264_encoded(file_path: Path) -> bool | None:
     """
     Check if a video file is encoded in H264/AVC format.
 
@@ -63,15 +63,13 @@ def is_h264_encoded(file_path: Path) -> bool:
         file_path (Path): Path to the video file.
 
     Returns:
-        bool: True if the video is H264/AVC encoded, False otherwise.
-
-    Raises:
-        ValueError: If no video track is found in the file.
+        bool | None: True if the video is H264/AVC encoded, False otherwise, or None if no video track is found.
     """
     for track in MediaInfo.parse(prepare_input_file(file_path)).tracks:
         if track.track_type == "Video":
             return track.format == "AVC"
-    raise ValueError(f"No video track found in {file_path}")
+    print(f"No video track found in {file_path}")
+    return None
 
 
 def get_output_file_path_for_mp4(input_file_path: Path, max_retries: int = 5) -> Path | None:
@@ -184,7 +182,7 @@ def transcode_video_file(input_file_path: Path, output_file_path: Path, config_f
     subprocess.run(command, check=True)
 
 
-def get_video_duration(file_path: Path) -> int:
+def get_video_duration(file_path: Path) -> int | None:
     """
     Get the duration of a video file in milliseconds.
 
@@ -192,15 +190,13 @@ def get_video_duration(file_path: Path) -> int:
         file_path (Path): Path to the video file.
 
     Returns:
-        int: Duration of the video in milliseconds.
-
-    Raises:
-        ValueError: If no video track is found in the file.
+        int | None: Duration of the video in milliseconds, or None if no video track is found.
     """
     for track in MediaInfo.parse(file_path).tracks:
         if track.track_type == "Video":
             return int(float(track.duration))  # duration might look like '3614866.000000'
-    raise ValueError(f"No video track found in {file_path}")
+    print(f"No video track found in {file_path}")
+    return None
 
 
 def monitor_and_transcode(*dir_paths: Path, check_interval_seconds: float = 60) -> None:
@@ -216,6 +212,9 @@ def monitor_and_transcode(*dir_paths: Path, check_interval_seconds: float = 60) 
             transcode_video_file(input_file_path, output_file_path)
             input_duration = get_video_duration(input_file_path)
             output_duration = get_video_duration(output_file_path)
+            if input_duration is None or output_duration is None:
+                print(f"Skipping duration check for {output_file_path} -> {input_file_path}")
+                continue
             assert abs(input_duration - output_duration) <= 50, (input_duration, output_duration)  # at 30 fps, 50ms is 1.5 frames
         print(f"Sleeping for {check_interval_seconds} seconds...")
         time.sleep(check_interval_seconds)
