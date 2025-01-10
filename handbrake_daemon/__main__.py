@@ -215,7 +215,7 @@ def monitor_and_transcode(*dir_paths: Path, check_interval_seconds: float = 60) 
             transcode_video_file(input_file_path, output_file_path)
             input_duration = get_video_duration(input_file_path)
             output_duration = get_video_duration(output_file_path)
-            assert input_duration == output_duration, (input_duration, output_duration)
+            assert abs(input_duration - output_duration) <= 50, (input_duration, output_duration)  # at 30 fps, 50ms is 1.5 frames
         print(f"Sleeping for {check_interval_seconds} seconds...")
         time.sleep(check_interval_seconds)
 
