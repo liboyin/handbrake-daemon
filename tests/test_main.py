@@ -1,4 +1,3 @@
-from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
@@ -16,8 +15,7 @@ def test_is_h264_encoded(mocker, tmp_path, format, expected):
 def test_is_h264_encoded_no_video_track(mocker, tmp_path):
     mocker.patch.object(testee, "prepare_input_file", lambda x: x)
     mocker.patch.object(testee.MediaInfo, "parse", return_value=Mock(tracks=[]))
-    with pytest.raises(ValueError, match="No video track found"):
-        testee.is_h264_encoded(tmp_path / "test.mp4")
+    assert testee.is_h264_encoded(tmp_path / "test.mp4") is None
 
 
 def test_get_output_file_path_for_mp4_file_not_exists(tmp_path):
@@ -72,5 +70,4 @@ def test_get_video_duration(mocker, tmp_path):
 def test_get_video_duration_no_video_track(mocker, tmp_path):
     mocker.patch.object(testee, "prepare_input_file", lambda x: x)
     mocker.patch.object(testee.MediaInfo, "parse", return_value=Mock(tracks=[]))
-    with pytest.raises(ValueError, match="No video track found"):
-        testee.get_video_duration(tmp_path / "test.mp4")
+    assert testee.get_video_duration(tmp_path / "test.mp4") is None
