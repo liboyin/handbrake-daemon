@@ -11,13 +11,13 @@ PROJECT_ROOT = Path(__file__).parents[1]
 HANDBRAKE_CONFIG = PROJECT_ROOT / "H264 NVENC CQ27.json"
 
 
-def wait_until_file_stable(file_path: Path, check_interval_seconds: float = 1, stability_duration_seconds: float = 5, timeout_seconds: float = 60) -> bool:
+def wait_until_file_stable(file_path: Path, check_interval_seconds: float = 2, stability_duration_seconds: float = 5, timeout_seconds: float = 60) -> bool:
     """
     Block until a file is no longer being changed by monitoring size and modification time.
 
     Args:
         file_path (Path): Path to the file to be checked.
-        check_interval_seconds (float, optional): Time between checks in seconds (default 1 second).
+        check_interval_seconds (float, optional): Time between checks in seconds (default 2 seconds).
         stability_duration_seconds (float, optional): How long the file must be unchanged before considering it stable (default 5 seconds).
         timeout_seconds (float, optional): Maximum time to wait for the file to stabilize (default 60 seconds).
 
