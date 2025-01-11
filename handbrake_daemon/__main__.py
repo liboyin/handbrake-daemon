@@ -89,8 +89,7 @@ def get_output_file_path_for_mp4(input_file_path: Path, max_retries: int = 5) ->
     if is_h264_encoded(input_file_path):
         print(f"MP4 file is already encoded in H264: {input_file_path}")
         return None
-    counter = 1
-    while counter <= max_retries:
+    for counter in range(1, max_retries + 1):
         new_path = input_file_path.with_suffix(f".{counter}.mp4")
         # case 1: candidate path does not exist
         if not new_path.exists():
@@ -100,7 +99,6 @@ def get_output_file_path_for_mp4(input_file_path: Path, max_retries: int = 5) ->
             print(f"A subsequent file encoded in H264 already exists: {input_file_path} -> {new_path}")
             return None
         # case 3: candidate path exists but is not a file
-        counter += 1
     return None
 
 
