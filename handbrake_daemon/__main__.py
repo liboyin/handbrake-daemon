@@ -27,7 +27,7 @@ def wait_until_file_stable(file_path: Path, check_interval_seconds: float = 1, s
     if not file_path.is_file():
         return False
     try:
-        print(f"Started monitoring file: {file_path}")
+        print(f"Monitoring file: {file_path}")
         start_time = last_change_time = time.time()
         last_stat = file_path.stat()
         while True:
@@ -68,7 +68,7 @@ def is_h264_encoded(file_path: Path) -> bool | None:
     for track in MediaInfo.parse(prepare_input_file(file_path)).tracks:
         if track.track_type == "Video":
             return track.format == "AVC"
-    print(f"No video track found in {file_path}")
+    print(f"Skipping encoding check because no video track was found in {file_path}")
     return None
 
 
@@ -84,20 +84,22 @@ def get_output_file_path_for_mp4(input_file_path: Path, max_retries: int = 5) ->
         Path | None: Path for the output file, or None if no transcoding is needed.
     """
     if not input_file_path.exists():
-        print("Skipping missing input file", input_file_path)
+        print(f"Skipping missing input path: {input_file_path}")
         return None
     if is_h264_encoded(input_file_path):
-        print("MP4 file is already encoded in H264:", input_file_path)
+        print(f"MP4 file is already encoded in H264: {input_file_path}")
         return None
     counter = 1
     while counter <= max_retries:
         new_path = input_file_path.with_suffix(f".{counter}.mp4")
+        # case 1: candidate path does not exist
         if not new_path.exists():
             return new_path
-        # if new_path exists but is not a file, move on to the next candidate filename
+        # case 2: candidate path is an H264-encoded video file
         elif new_path.is_file() and is_h264_encoded(new_path):
             print(f"A subsequent file encoded in H264 already exists: {input_file_path} -> {new_path}")
             return None
+        # case 3: candidate path exists but is not a file
         counter += 1
     return None
 
@@ -113,7 +115,7 @@ def get_output_file_path_for_mkv(input_file_path: Path) -> Path | None:
         Path | None: Path for the output MP4 file, or None if no transcoding is needed.
     """
     if not input_file_path.exists():
-        print("Skipping missing input file", input_file_path)
+        print(f"Skipping missing input path: {input_file_path}")
         return None
     mp4_file_path = input_file_path.with_suffix(".mp4")
     if not mp4_file_path.exists():
@@ -172,13 +174,13 @@ def transcode_video_file(input_file_path: Path, output_file_path: Path, config_f
     if not input_file_path.exists():
         print("Skipping missing input file", input_file_path)
         return
-    print(f"Transcoding: {input_file_path} -> {output_file_path}")
     command = [
         "HandBrakeCLI",
         "--preset-import-file", str(config_file_path),
         "-i", str(prepare_input_file(input_file_path)),
         "-o", str(prepare_output_file(output_file_path)),
     ]
+    print(f"Starting subprocess: {command}")
     subprocess.run(command, check=True)
 
 
@@ -195,7 +197,7 @@ def get_video_duration(file_path: Path) -> int | None:
     for track in MediaInfo.parse(file_path).tracks:
         if track.track_type == "Video":
             return int(float(track.duration))  # duration might look like '3614866.000000'
-    print(f"No video track found in {file_path}")
+    print(f"Skipping duration check because no video track was found in {file_path}")
     return None
 
 
@@ -213,7 +215,7 @@ def monitor_and_transcode(*dir_paths: Path, check_interval_seconds: float = 60) 
             input_duration = get_video_duration(input_file_path)
             output_duration = get_video_duration(output_file_path)
             if input_duration is None or output_duration is None:
-                print(f"Skipping duration check for {output_file_path} -> {input_file_path}")
+                print(f"Skipping duration check because no video track was found in {output_file_path} or {input_file_path}")
                 continue
             assert abs(input_duration - output_duration) <= 50, (input_duration, output_duration)  # at 30 fps, 50ms is 1.5 frames
         print(f"Sleeping for {check_interval_seconds} seconds...")
