@@ -213,11 +213,15 @@ def monitor_and_transcode(*dir_paths: Path, check_interval_seconds: float = 60) 
         for input_file_path, output_file_path in chain.from_iterable(map(yield_transcode_tasks, dir_paths)):
             transcode_video_file(input_file_path, output_file_path)
             input_duration = get_video_duration(input_file_path)
-            output_duration = get_video_duration(output_file_path)
-            if input_duration is None or output_duration is None:
-                print(f"Skipping duration check because no video track was found in {output_file_path} or {input_file_path}")
+            if input_duration is None:
+                print(f"Skipping duration check because no video track was found in {input_file_path}")
                 continue
-            assert abs(input_duration - output_duration) <= 50, (input_duration, output_duration)  # at 30 fps, 50ms is 1.5 frames
+            output_duration = get_video_duration(output_file_path)
+            if output_duration is None:
+                print(f"Skipping duration check because no video track was found in {output_file_path}")
+                continue
+            if abs(input_duration - output_duration) > 50:  # at 30 fps, 50ms is 1.5 frames
+                raise ValueError(f"Duration mismatch: {input_file_path} ({input_duration}ms) -> {output_file_path} ({output_duration}ms)")
         print(f"Sleeping for {check_interval_seconds} seconds...")
         time.sleep(check_interval_seconds)
 
