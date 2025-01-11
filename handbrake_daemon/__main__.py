@@ -176,6 +176,9 @@ def transcode_video_file(input_file_path: Path, output_file_path: Path, config_f
     if not wait_until_file_stable(input_file_path):
         print(f"Skipping transcoding because the input file does not exist or has not stabilized: {input_file_path}")
         return
+    if output_file_path.exists():
+        print(f"Skipping transcoding because the output path already exists: {output_file_path}")
+        return
     command = [
         "HandBrakeCLI",
         "--preset-import-file", str(config_file_path),
