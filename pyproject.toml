@@ -37,4 +37,4 @@ strict_optional = true
 addopts = "--cov=handbrake_daemon --cov-report html --cov-report=term"
 
 [tool.setuptools.packages]
-find = {where = ["handbrake_daemon"]}
+find = {}
