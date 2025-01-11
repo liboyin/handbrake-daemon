@@ -9,13 +9,13 @@ import handbrake_daemon.__main__ as testee
 def test_is_h264_encoded(mocker, tmp_path, format, expected):
     mocker.patch.object(testee, "prepare_input_file", lambda x: x)
     mocker.patch.object(testee.MediaInfo, "parse", return_value=Mock(tracks=[Mock(track_type="Video", format=format)]))
-    assert testee.is_h264_encoded(tmp_path / "test.mp4") is expected
+    assert testee.is_h264_encoded(tmp_path / "test.mp4", file_stable_flag=True) is expected
 
 
 def test_is_h264_encoded_no_video_track(mocker, tmp_path):
     mocker.patch.object(testee, "prepare_input_file", lambda x: x)
     mocker.patch.object(testee.MediaInfo, "parse", return_value=Mock(tracks=[]))
-    assert testee.is_h264_encoded(tmp_path / "test.mp4") is None
+    assert testee.is_h264_encoded(tmp_path / "test.mp4", file_stable_flag=True) is None
 
 
 def test_get_output_file_path_for_mp4_file_not_exists(tmp_path):
