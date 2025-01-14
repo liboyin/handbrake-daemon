@@ -168,6 +168,8 @@ def transcode_video_file(input_file_path: Path, output_file_path: Path, config_f
     """
     Transcode a video file using HandBrake CLI.
 
+    During transcoding, it writes to a temporary output file. This file is renamed to the final output filename if HandBrake exit with 0.
+
     Args:
         input_file_path (Path): Path to the input video file.
         output_file_path (Path): Path to the output video file.
@@ -176,17 +178,24 @@ def transcode_video_file(input_file_path: Path, output_file_path: Path, config_f
     if not wait_until_file_stable(input_file_path):
         print(f"Skipping transcoding because the input file does not exist or has not stabilized: {input_file_path}")
         return
-    if output_file_path.exists():
-        print(f"Skipping transcoding because the output path already exists: {output_file_path}")
+    temp_output_file_path = output_file_path.parent / output_file_path.name + ".tmp"
+    if temp_output_file_path.exists():
+        print(f"Skipping transcoding because the temp output path already exists: {temp_output_file_path}")
         return
     command = [
         "HandBrakeCLI",
         "--preset-import-file", str(config_file_path),
         "-i", str(prepare_input_file(input_file_path)),
-        "-o", str(prepare_output_file(output_file_path)),
+        "-o", str(prepare_output_file(temp_output_file_path)),
     ]
     print(f"Starting subprocess: {command}")
-    subprocess.run(command, check=True)
+    try:
+        subprocess.run(command, check=True)
+        if not output_file_path.exists():
+            temp_output_file_path.rename(output_file_path)
+        print(f"HandBrake finished successfully: {input_file_path} -> {output_file_path}")
+    except subprocess.CalledProcessError:
+        raise
 
 
 def get_video_duration(file_path: Path) -> int | None:
