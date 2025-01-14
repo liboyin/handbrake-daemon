@@ -51,7 +51,7 @@ def wait_until_file_stable(file_path: Path, check_interval_seconds: float = 2, s
             # case 4: file did not change, but we're waiting for the stability duration to finish
             print(f"Waiting for the stability duration to finish: {file_path}")
     except (OSError, FileNotFoundError) as e:
-        print(f"Ignoring file {file_path} due to error: {e}")
+        print(f"Could not wait for file {file_path} to stabilize due to error: {e}")
         return False
 
 
@@ -72,7 +72,8 @@ def is_h264_encoded(file_path: Path, file_stable_flag: bool = False) -> bool | N
     if file_stable_flag:
         print(f"Skipping encoding check because no video track was found in {file_path}")
         return None
-    wait_until_file_stable(file_path)
+    if not wait_until_file_stable(file_path):
+        return None
     return is_h264_encoded(file_path, file_stable_flag=True)
 
 
