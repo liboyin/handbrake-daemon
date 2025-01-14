@@ -51,7 +51,7 @@ def wait_until_file_stable(file_path: Path, check_interval_seconds: float = 2, s
             # case 4: file did not change, but we're waiting for the stability duration to finish
             print(f"Waiting for the stability duration to finish: {file_path}")
     except (OSError, FileNotFoundError) as e:
-        print(f"Could not wait for file {file_path} to stabilize due to error: {e}")
+        print(f"Could not wait for file {file_path} to stabilize due to {type(e).__name__}: {e}")
         return False
 
 
