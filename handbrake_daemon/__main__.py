@@ -179,7 +179,7 @@ def transcode_video_file(input_file_path: Path, output_file_path: Path, config_f
     if not wait_until_file_stable(input_file_path):
         print(f"Skipping transcoding because the input file does not exist or has not stabilized: {input_file_path}")
         return
-    temp_output_file_path = output_file_path.parent / output_file_path.name + ".tmp"
+    temp_output_file_path = output_file_path.parent / (output_file_path.name + ".tmp")
     if temp_output_file_path.exists():
         print(f"Skipping transcoding because the temp output path already exists: {temp_output_file_path}")
         return
