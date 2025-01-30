@@ -9,5 +9,5 @@ services:
     container_name: handbrake-daemon-app
     volumes:
       - .:/workspaces/handbrake-daemon
-      - /media/libo/Videos/Transcode:/workspaces/handbrake-daemon/assets
+      - /media/libo-largefiles/Videos/Transcode:/workspaces/handbrake-daemon/assets
     runtime: nvidia
