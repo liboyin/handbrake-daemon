@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
+FROM nvidia/cuda:12.8.0-runtime-ubuntu24.04
 
 ARG APT_PROXY
 ARG PYPI_PROXY
@@ -7,7 +7,6 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV NVIDIA_DRIVER_CAPABILITIES=all
 ENV PYTHONFAULTHANDLER=1
 
-RUN useradd -m ubuntu
 COPY --chown=ubuntu . /workspaces/handbrake-daemon
 WORKDIR /workspaces/handbrake-daemon
 

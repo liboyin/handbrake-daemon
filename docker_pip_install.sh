@@ -6,6 +6,7 @@ PIP_CONF_PATH=$HOME/.pip/pip.conf
 mkdir -p "$(dirname "$PIP_CONF_PATH")"
 cat <<EOF > "$PIP_CONF_PATH"
 [global]
+break-system-packages = true
 disable-pip-version-check = true
 no-cache-dir = true
 no-compile = true
@@ -21,11 +22,6 @@ EOF
 fi
 
 cat "$PIP_CONF_PATH"
-
-# pyproject.toml requires setuptools >= 64 but python3-setuptools is too old on APT
-curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
-python get-pip.py
-rm get-pip.py
 
 # Pin dependency versions by installing from the lock file before installing this project
 if [ -s "requirements.txt" ]; then
