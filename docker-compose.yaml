@@ -10,3 +10,4 @@ services:
     volumes:
       - /media/libo-largefiles/Videos/Transcode:/workspaces/handbrake-daemon/assets
     runtime: nvidia
+    network_mode: none
