@@ -10,7 +10,7 @@
     "remoteUser": "ubuntu",
     "workspaceFolder": "/workspaces/handbrake-daemon",
     "mounts": [
-        "source=${localEnv:HOME}/.ssh,target=/home/ubuntu/.ssh,type=bind",
+        "source=${localEnv:HOME}/.ssh,target=/home/ubuntu/.ssh,type=tmpfs",
         "source=${localWorkspaceFolder},target=/workspaces/handbrake-daemon,type=bind"
     ],
     "postCreateCommand": "chmod +x .devcontainer/postCreateCommand.sh && ./.devcontainer/postCreateCommand.sh",
