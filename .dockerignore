@@ -1,0 +1,56 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Version control
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker
+.dockerignore
+docker-compose*.yaml
+Dockerfile*
+
+# Python
+__pycache__/
+.coverage
+.eggs/
+.env
+.installed.cfg
+.mypy_cache/
+.pytest_cache/
+.Python
+.venv
+*.egg
+*.egg-info/
+*.py[cod]
+*.so
+*$py.class
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+env/
+ENV/
+htmlcov/
+lib/
+lib64/
+MANIFEST
+parts/
+sdist/
+share/python-wheels/
+var/
+venv/
+wheels/
+
+# Project specific
+.devcontainer/
+assets/
+tests/
