@@ -66,9 +66,13 @@ def is_h264_encoded(file_path: Path, file_stable_flag: bool = False) -> bool | N
     Returns:
         bool | None: True if the video is H264/AVC encoded, False otherwise, or None if no video track is found.
     """
-    for track in MediaInfo.parse(prepare_input_file(file_path)).tracks:
-        if track.track_type == "Video":
-            return track.format == "AVC"
+    try:
+        for track in MediaInfo.parse(prepare_input_file(file_path)).tracks:
+            if track.track_type == "Video":
+                return track.format == "AVC"
+    except Exception as e:
+        print(f"Could not check encoding of {file_path} due to {type(e).__name__}: {e}")
+        return None
     if file_stable_flag:
         print(f"Skipping encoding check because no video track was found in {file_path}")
         return None
@@ -214,9 +218,13 @@ def get_video_duration(file_path: Path) -> int | None:
     Returns:
         int | None: Duration of the video in milliseconds, or None if no video track is found.
     """
-    for track in MediaInfo.parse(file_path).tracks:
-        if track.track_type == "Video":
-            return int(float(track.duration))  # duration might look like '3614866.000000'
+    try:
+        for track in MediaInfo.parse(file_path).tracks:
+            if track.track_type == "Video":
+                return int(float(track.duration))  # duration might look like '3614866.000000'
+    except Exception as e:
+        print(f"Could not get duration of {file_path} due to {type(e).__name__}: {e}")
+        return None
     print(f"Skipping duration check because no video track was found in {file_path}")
     return None
 
