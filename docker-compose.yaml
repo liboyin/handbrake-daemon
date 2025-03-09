@@ -8,6 +8,6 @@ services:
     init: true
     container_name: handbrake-daemon-app
     volumes:
-      - /media/libo-largefiles/Videos/Transcode:/workspaces/handbrake-daemon/assets
+      - /media/libo-smallfiles/Transcode:/workspaces/handbrake-daemon/assets
     runtime: nvidia
     network_mode: none
