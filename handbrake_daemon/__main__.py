@@ -250,7 +250,8 @@ def monitor_and_transcode(*dir_paths: Path, check_interval_seconds: float = 60) 
                 print(f"Skipping duration check because no video track was found in {output_file_path}")
                 continue
             if abs(input_duration - output_duration) > 500:  # at 30 fps, 500ms is 15 frames
-                raise ValueError(f"Duration mismatch: {input_file_path} ({input_duration}ms) -> {output_file_path} ({output_duration}ms)")
+                print(f"Duration mismatch: {input_file_path} ({input_duration}ms) -> {output_file_path} ({output_duration}ms)")
+                output_file_path.unlink(missing_ok=True)
         print(f"Sleeping for {check_interval_seconds} seconds...")
         time.sleep(check_interval_seconds)
 
