@@ -169,7 +169,7 @@ def yield_transcode_tasks(dir_path: Path) -> Iterator[Tuple[Path, Path]]:
                 yield input_file_path, output_file_path
 
 
-def transcode_video_file(input_file_path: Path, output_file_path: Path, config_file_path: Path = HANDBRAKE_CONFIG) -> bool:
+def transcode_video_file(input_file_path: Path, output_file_path: Path, config_file_path: Path = HANDBRAKE_CONFIG) -> None:
     """
     Transcode a video file using HandBrake CLI.
 
@@ -179,9 +179,6 @@ def transcode_video_file(input_file_path: Path, output_file_path: Path, config_f
         input_file_path (Path): Path to the input video file.
         output_file_path (Path): Path to the output video file.
         config_file_path (Path, optional): Path to HandBrake config file. Defaults to `HANDBRAKE_CONFIG`.
-
-    Returns:
-        bool: True if the transcoding was successful, False otherwise.
     """
     if not wait_until_file_stable(input_file_path):
         print(f"Skipping transcoding because the input file does not exist or has not stabilized: {input_file_path}")
@@ -197,15 +194,11 @@ def transcode_video_file(input_file_path: Path, output_file_path: Path, config_f
         "-o", str(prepare_output_file(temp_output_file_path)),
     ]
     print(f"Starting subprocess: {command}")
-    try:
-        subprocess.run(command, check=True)
-        if not output_file_path.exists():
-            temp_output_file_path.rename(output_file_path)
-        print(f"HandBrake finished successfully: {input_file_path} -> {output_file_path}")
-        return True
-    except subprocess.CalledProcessError as e:
-        print(f"HandBrake failed with error: {e}")
-        return False
+    # HandBrake may fail due to CUDA issues, in which case the container needs to be restarted
+    subprocess.run(command, check=True)
+    if not output_file_path.exists():
+        temp_output_file_path.rename(output_file_path)
+    print(f"HandBrake finished successfully: {input_file_path} -> {output_file_path}")
 
 
 def get_video_duration(file_path: Path) -> int | None:
@@ -239,8 +232,7 @@ def monitor_and_transcode(*dir_paths: Path, check_interval_seconds: float = 60) 
     """
     while True:
         for input_file_path, output_file_path in chain.from_iterable(map(yield_transcode_tasks, dir_paths)):
-            if not transcode_video_file(input_file_path, output_file_path):
-                continue
+            transcode_video_file(input_file_path, output_file_path)
             input_duration = get_video_duration(input_file_path)
             if input_duration is None:
                 print(f"Skipping duration check because no video track was found in {input_file_path}")
