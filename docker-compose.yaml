@@ -12,3 +12,8 @@ services:
     volumes:
       - /media/libo-smallfiles/Transcode:/workspaces/handbrake-daemon/assets
     network_mode: none
+    healthcheck:
+      test: ["CMD", "nvidia-smi"]
+      interval: 60s
+      timeout: 10s
+      start_period: 30s
