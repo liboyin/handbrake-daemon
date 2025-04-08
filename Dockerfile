@@ -14,4 +14,4 @@ RUN ./docker_apt_install.sh
 RUN ./docker_pip_install.sh
 
 USER ubuntu
-ENTRYPOINT ["python", "handbrake_daemon"]
+ENTRYPOINT ["entrypoint.sh"]
