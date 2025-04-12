@@ -1,6 +1,7 @@
 from itertools import chain
 from pathlib import Path
 import subprocess
+import sys
 import time
 from typing import Iterator, Tuple
 
@@ -9,6 +10,20 @@ from pymediainfo import MediaInfo
 
 PROJECT_ROOT = Path(__file__).parents[1]
 HANDBRAKE_CONFIG = PROJECT_ROOT / "H264 NVENC CQ27.json"
+
+
+def is_gpu_healthy() -> bool:
+    """
+    Checks if the GPU is healthy and available by running nvidia-smi.
+    
+    Returns:
+        bool: True if nvidia-smi finished with exit code 0, False otherwise.
+    """
+    try:
+        result = subprocess.run(["nvidia-smi"], check=False)
+        return result.returncode == 0
+    except Exception:
+        return False
 
 
 def wait_until_file_stable(file_path: Path, check_interval_seconds: float = 2, stability_duration_seconds: float = 5, timeout_seconds: float = 60) -> bool:
@@ -231,6 +246,9 @@ def monitor_and_transcode(*dir_paths: Path, check_interval_seconds: float = 60) 
         check_interval_seconds (float, optional): Time between directory scans in seconds. Defaults to 60.
     """
     while True:
+        if not is_gpu_healthy():
+            print("GPU health check failed. Restarting...")
+            sys.exit(2)  # ENOENT
         for input_file_path, output_file_path in chain.from_iterable(map(yield_transcode_tasks, dir_paths)):
             transcode_video_file(input_file_path, output_file_path)
             input_duration = get_video_duration(input_file_path)
