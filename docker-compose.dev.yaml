@@ -1,0 +1,13 @@
+services:
+  app:
+    build:
+      context: .
+      args:
+        APT_PROXY: http://192.168.0.4:3142
+        PYPI_PROXY: http://192.168.0.4:3141/root/pypi/+simple/
+    container_name: handbrake-daemon-app
+    init: true
+    runtime: nvidia
+    restart: on-failure:3
+    volumes:
+      - /media/libo-smallfiles/Transcode:/workspaces/handbrake-daemon/assets
