@@ -37,7 +37,7 @@ def wait_until_file_stable(file_path: Path, check_interval_seconds: float = 2, s
         timeout_seconds (float, optional): Maximum time to wait for the file to stabilize (default 60 seconds).
 
     Returns:
-        bool: True if the file has stabilized, False if the file is inaccessible.
+        bool: True if the file has stabilized, False if the file is inaccessible or empty.
     """
     if not file_path.is_file():
         return False
@@ -45,25 +45,33 @@ def wait_until_file_stable(file_path: Path, check_interval_seconds: float = 2, s
         print(f"Monitoring file: {file_path}")
         start_time = last_change_time = time.time()
         last_stat = file_path.stat()
+        # skip empty files
+        if last_stat.st_size == 0:
+            print(f"File is empty: {file_path}")
+            return False
         while True:
             time.sleep(check_interval_seconds)
             current_time = time.time()
             current_stat = file_path.stat()
-            # case 1: file has changed
+            # case 1: file is empty
+            if current_stat.st_size == 0:
+                print(f"File is empty: {file_path}")
+                return False
+            # case 2: file has changed
             if current_stat.st_size != last_stat.st_size or current_stat.st_mtime != last_stat.st_mtime:
                 print(f"File has changed: {file_path}")
                 last_change_time = current_time
                 last_stat = current_stat
                 continue
-            # case 2: file has stabilized
+            # case 3: file has stabilized
             if current_time - last_change_time >= stability_duration_seconds:
                 print(f"File has stabilized: {file_path}")
                 return True
-            # case 3: timeout
+            # case 4: timeout
             if current_time - start_time >= timeout_seconds:
                 print(f"Timeout waiting for file to stabilize: {file_path}")
                 return False
-            # case 4: file did not change, but we're waiting for the stability duration to finish
+            # case 5: file did not change, but we're waiting for the stability duration to finish
             print(f"Waiting for the stability duration to finish: {file_path}")
     except (OSError, FileNotFoundError) as e:
         print(f"Could not wait for file {file_path} to stabilize due to {type(e).__name__}: {e}")
