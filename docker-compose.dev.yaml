@@ -8,6 +8,6 @@ services:
     container_name: handbrake-daemon-app
     init: true
     runtime: nvidia
-    restart: on-failure:3
+    restart: unless-stopped
     volumes:
       - /media/libo-smallfiles/Transcode:/workspaces/handbrake-daemon/assets
