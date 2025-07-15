@@ -1,4 +1,4 @@
-pathlib-extensions @ git+https://github.com/liboyin/pathlib-extensions.git@23ce8dd15a246448c733a89c3a2da7b9f0131de3
+pathlib-extensions @ git+https://github.com/liboyin/pathlib-extensions.git@08e8df369e855b98f97a4f8e4bb96c5cc19428a7
 pymediainfo==7.0.1
 setuptools==68.1.2
 wheel==0.42.0
