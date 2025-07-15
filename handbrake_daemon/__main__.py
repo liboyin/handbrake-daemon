@@ -219,10 +219,15 @@ def transcode_video_file(input_file_path: Path, output_file_path: Path, config_f
     ]
     print(f"Starting subprocess: {command}")
     # HandBrake may fail due to CUDA issues, in which case the container needs to be restarted
-    subprocess.run(command, check=True)
-    if not output_file_path.exists():
-        temp_output_file_path.rename(output_file_path)
-    print(f"HandBrake finished successfully: {input_file_path} -> {output_file_path}")
+    try:
+        subprocess.run(command, check=True, timeout=3600)  # 1 hour timeout
+        if not output_file_path.exists():
+            temp_output_file_path.rename(output_file_path)
+        print(f"HandBrake finished successfully: {input_file_path} -> {output_file_path}")
+    except subprocess.TimeoutExpired:
+        print(f"HandBrake timed out after 1 hour processing {input_file_path}")
+        temp_output_file_path.unlink(missing_ok=True)
+        raise
 
 
 def get_video_duration(file_path: Path) -> int | None:
