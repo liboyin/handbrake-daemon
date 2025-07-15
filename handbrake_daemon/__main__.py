@@ -1,4 +1,5 @@
 from itertools import chain
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -275,4 +276,4 @@ def monitor_and_transcode(*dir_paths: Path, check_interval_seconds: float = 60) 
 
 
 if __name__ == "__main__":
-    monitor_and_transcode(PROJECT_ROOT / "assets")
+    monitor_and_transcode(Path(os.environ.get("MONITOR_DIR", PROJECT_ROOT / "assets")))
