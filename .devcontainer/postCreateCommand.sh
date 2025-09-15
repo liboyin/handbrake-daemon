@@ -4,6 +4,7 @@ pip freeze | grep -v "handbrake-daemon\|handbrake_daemon" > requirements.txt
 sudo pip install -e .[dev]
 # install nodeJS for AI code assistants
 sudo apt-get update
-sudo apt-get install -y --no-install-recommends nodejs npm
-# npx @google/gemini-cli
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt-get install -y --no-install-recommends nodejs
+# npx https://github.com/google-gemini/gemini-cli
 # npx @anthropic-ai/claude-code
