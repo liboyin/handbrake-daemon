@@ -193,6 +193,27 @@ def yield_transcode_tasks(dir_path: Path) -> Iterator[Tuple[Path, Path]]:
                 yield input_file_path, output_file_path
 
 
+def get_video_duration_milliseconds(file_path: Path) -> int | None:
+    """
+    Get the duration of a video file in milliseconds.
+
+    Args:
+        file_path (Path): Path to the video file.
+
+    Returns:
+        int | None: Duration of the video in milliseconds, or None if no video track is found.
+    """
+    try:
+        for track in MediaInfo.parse(file_path).tracks:
+            if track.track_type == "Video":
+                return int(float(track.duration))  # track.duration might look like '3614866.000000'
+    except Exception as e:
+        print(f"Could not get duration of {file_path} due to {type(e).__name__}: {e}")
+        return None
+    print(f"Skipping duration check because no video track was found in {file_path}")
+    return None
+
+
 def transcode_video_file(input_file_path: Path, output_file_path: Path, config_file_path: Path = HANDBRAKE_CONFIG) -> None:
     """
     Transcode a video file using HandBrake CLI.
@@ -220,7 +241,8 @@ def transcode_video_file(input_file_path: Path, output_file_path: Path, config_f
     print(f"Starting subprocess: {command}")
     # HandBrake may fail due to CUDA issues, in which case the container needs to be restarted
     try:
-        subprocess.run(command, check=True, timeout=3600)  # 1 hour timeout
+        timeout_seconds = get_video_duration_milliseconds(input_file_path) / 1000 or 7200  # default to 2 hours timeout
+        subprocess.run(command, check=True, timeout=timeout_seconds)
         if not output_file_path.exists():
             temp_output_file_path.rename(output_file_path)
         print(f"HandBrake finished successfully: {input_file_path} -> {output_file_path}")
@@ -228,27 +250,6 @@ def transcode_video_file(input_file_path: Path, output_file_path: Path, config_f
         print(f"HandBrake timed out after 1 hour processing {input_file_path}")
         temp_output_file_path.unlink(missing_ok=True)
         raise
-
-
-def get_video_duration(file_path: Path) -> int | None:
-    """
-    Get the duration of a video file in milliseconds.
-
-    Args:
-        file_path (Path): Path to the video file.
-
-    Returns:
-        int | None: Duration of the video in milliseconds, or None if no video track is found.
-    """
-    try:
-        for track in MediaInfo.parse(file_path).tracks:
-            if track.track_type == "Video":
-                return int(float(track.duration))  # duration might look like '3614866.000000'
-    except Exception as e:
-        print(f"Could not get duration of {file_path} due to {type(e).__name__}: {e}")
-        return None
-    print(f"Skipping duration check because no video track was found in {file_path}")
-    return None
 
 
 def monitor_and_transcode(*dir_paths: Path, check_interval_seconds: float = 60) -> None:
@@ -265,16 +266,16 @@ def monitor_and_transcode(*dir_paths: Path, check_interval_seconds: float = 60) 
             sys.exit(2)  # ENOENT
         for input_file_path, output_file_path in chain.from_iterable(map(yield_transcode_tasks, dir_paths)):
             transcode_video_file(input_file_path, output_file_path)
-            input_duration = get_video_duration(input_file_path)
-            if input_duration is None:
+            input_duration_ms = get_video_duration_milliseconds(input_file_path)
+            if input_duration_ms is None:
                 print(f"Skipping duration check because no video track was found in {input_file_path}")
                 continue
-            output_duration = get_video_duration(output_file_path)
-            if output_duration is None:
+            output_duration_ms = get_video_duration_milliseconds(output_file_path)
+            if output_duration_ms is None:
                 print(f"Skipping duration check because no video track was found in {output_file_path}")
                 continue
-            if abs(input_duration - output_duration) > 500:  # at 30 fps, 500ms is 15 frames
-                print(f"Duration mismatch: {input_file_path} ({input_duration}ms) -> {output_file_path} ({output_duration}ms)")
+            if abs(input_duration_ms - output_duration_ms) > 500:  # at 30 fps, 500ms is 15 frames
+                print(f"Duration mismatch: {input_file_path} ({input_duration_ms}ms) -> {output_file_path} ({output_duration_ms}ms)")
                 output_file_path.unlink(missing_ok=True)
         print(f"Sleeping for {check_interval_seconds} seconds...")
         time.sleep(check_interval_seconds)
