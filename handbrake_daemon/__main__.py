@@ -95,6 +95,7 @@ def is_h264_encoded(file_path: Path) -> bool | None:
                 return track.format == "AVC"
     except Exception as e:
         print(f"Could not check encoding of {file_path} due to {type(e).__name__}: {e}")
+    return
 
 
 def get_output_file_path_for_mp4(input_file_path: Path, max_retries: int = 5) -> Path | None:
@@ -221,7 +222,7 @@ def transcode_video_file(input_file_path: Path, output_file_path: Path, config_f
     temp_output_file_path = output_file_path.parent / (output_file_path.name + ".tmp")
     if temp_output_file_path.exists():
         print(f"Skipping transcoding because the temp output path already exists: {temp_output_file_path}")
-        return False
+        return
     command = [
         "HandBrakeCLI",
         "--preset-import-file", str(config_file_path),
