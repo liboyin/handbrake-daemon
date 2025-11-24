@@ -79,13 +79,12 @@ def wait_until_file_stable(file_path: Path, check_interval_seconds: float = 2, s
         return False
 
 
-def is_h264_encoded(file_path: Path, file_stable_flag: bool = False) -> bool | None:
+def is_h264_encoded(file_path: Path) -> bool | None:
     """
     Check if a video file is encoded in H264/AVC format.
 
     Args:
         file_path (Path): Path to the video file.
-        file_stable_flag (bool, optional): Whether the file is known to have stabilized. Defaults to False.
 
     Returns:
         bool | None: True if the video is H264/AVC encoded, False otherwise, or None if no video track is found.
@@ -96,13 +95,6 @@ def is_h264_encoded(file_path: Path, file_stable_flag: bool = False) -> bool | N
                 return track.format == "AVC"
     except Exception as e:
         print(f"Could not check encoding of {file_path} due to {type(e).__name__}: {e}")
-        return None
-    if file_stable_flag:
-        print(f"Skipping encoding check because no video track was found in {file_path}")
-        return None
-    if not wait_until_file_stable(file_path):
-        return None
-    return is_h264_encoded(file_path, file_stable_flag=True)
 
 
 def get_output_file_path_for_mp4(input_file_path: Path, max_retries: int = 5) -> Path | None:
@@ -189,6 +181,7 @@ def yield_transcode_tasks(dir_path: Path) -> Iterator[Tuple[Path, Path]]:
     prepare_input_dir(dir_path)
     for suffix in (".mkv", ".mp4"):
         for input_file_path in dir_path.glob(f"**/*{suffix}"):
+            wait_until_file_stable(input_file_path)
             if output_file_path := get_output_file_path(input_file_path):
                 yield input_file_path, output_file_path
 
@@ -225,9 +218,6 @@ def transcode_video_file(input_file_path: Path, output_file_path: Path, config_f
         output_file_path (Path): Path to the output video file.
         config_file_path (Path, optional): Path to HandBrake config file. Defaults to `HANDBRAKE_CONFIG`.
     """
-    if not wait_until_file_stable(input_file_path):
-        print(f"Skipping transcoding because the input file does not exist or has not stabilized: {input_file_path}")
-        return False
     temp_output_file_path = output_file_path.parent / (output_file_path.name + ".tmp")
     if temp_output_file_path.exists():
         print(f"Skipping transcoding because the temp output path already exists: {temp_output_file_path}")
