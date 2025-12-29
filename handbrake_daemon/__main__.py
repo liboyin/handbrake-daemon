@@ -46,10 +46,6 @@ def wait_until_file_stable(file_path: Path, check_interval_seconds: float = 2, s
         print(f"Monitoring file: {file_path}")
         start_time = last_change_time = time.time()
         last_stat = file_path.stat()
-        # skip empty files
-        if last_stat.st_size == 0:
-            print(f"File is empty: {file_path}")
-            return False
         while True:
             time.sleep(check_interval_seconds)
             current_time = time.time()
