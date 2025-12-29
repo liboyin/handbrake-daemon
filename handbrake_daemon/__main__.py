@@ -178,8 +178,7 @@ def yield_transcode_tasks(dir_path: Path) -> Iterator[Tuple[Path, Path]]:
     prepare_input_dir(dir_path)
     for suffix in (".mkv", ".mp4"):
         for input_file_path in dir_path.glob(f"**/*{suffix}"):
-            wait_until_file_stable(input_file_path)
-            if output_file_path := get_output_file_path(input_file_path):
+            if wait_until_file_stable(input_file_path) and (output_file_path := get_output_file_path(input_file_path)):
                 yield input_file_path, output_file_path
 
 
