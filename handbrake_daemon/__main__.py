@@ -54,20 +54,21 @@ def wait_until_file_stable(file_path: Path, check_interval_seconds: float = 2, s
             if current_stat.st_size == 0:
                 print(f"File is empty: {file_path}")
                 return False
-            # case 2: file has changed
+            # case 2: timeout
+            if current_time - start_time >= timeout_seconds:
+                print(f"Timeout waiting for file to stabilize: {file_path}")
+                return False
+            # case 3: file has changed
+            # must check timeout first, otherwise this function will stuck on a constantly-changing file
             if current_stat.st_size != last_stat.st_size or current_stat.st_mtime != last_stat.st_mtime:
                 print(f"File has changed: {file_path}")
                 last_change_time = current_time
                 last_stat = current_stat
                 continue
-            # case 3: file has stabilized
+            # case 4: file has stabilized
             if current_time - last_change_time >= stability_duration_seconds:
                 print(f"File has stabilized: {file_path}")
                 return True
-            # case 4: timeout
-            if current_time - start_time >= timeout_seconds:
-                print(f"Timeout waiting for file to stabilize: {file_path}")
-                return False
             # case 5: file did not change, but we're waiting for the stability duration to finish
             print(f"Waiting for the stability duration to finish: {file_path}")
     except (OSError, FileNotFoundError) as e:
