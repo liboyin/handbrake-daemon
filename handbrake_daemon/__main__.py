@@ -46,6 +46,10 @@ def wait_until_file_stable(file_path: Path, check_interval_seconds: float = 2, s
         print(f"Monitoring file: {file_path}")
         start_time = last_change_time = time.time()
         last_stat = file_path.stat()
+        # case 0: the file is already stable
+        if start_time - last_stat.st_mtime >= stability_duration_seconds:
+            print(f"File is already stable: {file_path}")
+            return True
         while True:
             time.sleep(check_interval_seconds)
             current_time = time.time()
