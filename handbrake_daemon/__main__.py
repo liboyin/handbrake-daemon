@@ -96,7 +96,7 @@ def is_h264_encoded(file_path: Path) -> bool | None:
                 return track.format == "AVC"
     except Exception as e:
         print(f"Could not check encoding of {file_path} due to {type(e).__name__}: {e}")
-    return
+    return None
 
 
 def get_output_file_path_for_mp4(input_file_path: Path, max_retries: int = 5) -> Path | None:
