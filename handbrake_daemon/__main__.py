@@ -113,20 +113,25 @@ def get_output_file_path_for_mp4(input_file_path: Path, max_retries: int = 5) ->
     if not input_file_path.exists():
         print(f"Skipping missing input path: {input_file_path}")
         return None
-    if is_h264_encoded(input_file_path):
-        print(f"MP4 file is already encoded in H264: {input_file_path}")
-        return None
-    for counter in range(1, max_retries + 1):
-        new_path = input_file_path.with_suffix(f".{counter}.mp4")
-        # case 1: candidate path does not exist
-        if not new_path.exists():
-            return new_path
-        # case 2: candidate path is an H264-encoded video file
-        elif new_path.is_file() and is_h264_encoded(new_path):
-            print(f"A subsequent file encoded in H264 already exists: {input_file_path} -> {new_path}")
+    match is_h264_encoded(input_file_path):
+        case True:
+            print(f"MP4 file is already encoded in H264: {input_file_path}")
             return None
-        # case 3: candidate path exists but is not a file
-    return None
+        case False:
+            for counter in range(1, max_retries + 1):
+                new_path = input_file_path.with_suffix(f".{counter}.mp4")
+                # case 1: candidate path does not exist
+                if not new_path.exists():
+                    return new_path
+                # case 2: candidate path is an H264-encoded video file
+                elif new_path.is_file() and is_h264_encoded(new_path):
+                    print(f"A subsequent file encoded in H264 already exists: {input_file_path} -> {new_path}")
+                    return None
+                # case 3: candidate path exists but is not a file
+                continue
+            return None
+        case _:  # None: could not check encoding
+            return None
 
 
 def get_output_file_path_for_mkv(input_file_path: Path) -> Path | None:
