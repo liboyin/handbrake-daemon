@@ -23,11 +23,7 @@ fi
 
 cat "$PIP_CONF_PATH"
 
-# Pin dependency versions by installing from the lock file before installing this project
-if [ -s "requirements.txt" ]; then
-    pip install -r requirements.txt
-fi
-pip install -e .
+pip install -r requirements.txt
 
 # Remove pip cache
 pip_cache_dirs=(

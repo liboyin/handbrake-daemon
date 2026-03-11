@@ -1,0 +1,7 @@
+ipython
+mypy
+pytest
+pytest-cov
+pytest-mock
+pytest-randomly
+ruff

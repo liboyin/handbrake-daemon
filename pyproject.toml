@@ -15,16 +15,6 @@ dependencies = [
   "pymediainfo",
 ]
 
-[project.optional-dependencies]
-dev = [
-  "ipython",
-  "mypy",
-  "pytest",
-  "pytest-cov",
-  "pytest-mock",
-  "pytest-randomly",
-]
-
 [tool.mypy]
 ignore_missing_imports = true
 check_untyped_defs = true
