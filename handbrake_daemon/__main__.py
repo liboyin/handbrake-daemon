@@ -30,7 +30,7 @@ def is_gpu_healthy() -> bool:
         bool: True if nvidia-smi finished with exit code 0, False otherwise.
     """
     try:
-        result = subprocess.run(["nvidia-smi"], check=False)
+        result = subprocess.run(["nvidia-smi"], check=False, capture_output=True)
         return result.returncode == 0
     except Exception:
         return False
@@ -74,7 +74,7 @@ def wait_until_file_stable(file_path: Path, check_interval_seconds: float = 2, s
             # case 3: file has changed
             # must check timeout first, otherwise this function will stuck on a constantly-changing file
             if current_stat.st_size != last_stat.st_size or current_stat.st_mtime != last_stat.st_mtime:
-                logger.info("File has changed: %s", file_path)
+                logger.info("File size or modification time has changed: %s", file_path)
                 last_change_time = current_time
                 last_stat = current_stat
                 continue
@@ -124,7 +124,7 @@ def get_output_file_path_for_mp4(input_file_path: Path, max_retries: int = 5) ->
         return None
     match is_h264_encoded(input_file_path):
         case True:
-            logger.info("MP4 file is already encoded in H264: %s", input_file_path)
+            logger.debug("MP4 file is already encoded in H264: %s", input_file_path)
             return None
         case False:
             for counter in range(1, max_retries + 1):
@@ -134,7 +134,7 @@ def get_output_file_path_for_mp4(input_file_path: Path, max_retries: int = 5) ->
                     return new_path
                 # case 2: candidate path is an H264-encoded video file
                 elif new_path.is_file() and is_h264_encoded(new_path):
-                    logger.info("A subsequent file encoded in H264 already exists: %s -> %s", input_file_path, new_path)
+                    logger.debug("A subsequent file encoded in H264 already exists: %s -> %s", input_file_path, new_path)
                     return None
                 # case 3: candidate path exists but is not a file
                 continue
