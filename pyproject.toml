@@ -25,6 +25,7 @@ strict_optional = true
 
 [tool.pytest.ini_options]
 addopts = "--cov=handbrake_daemon --cov-report html --cov-report=term"
+pythonpath = ["."]
 
 [tool.setuptools.packages]
 find = {}
