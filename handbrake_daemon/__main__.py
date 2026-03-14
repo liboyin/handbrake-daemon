@@ -1,4 +1,5 @@
 from itertools import chain
+import logging
 import os
 from pathlib import Path
 import subprocess
@@ -8,6 +9,14 @@ from typing import Iterator, Tuple
 
 from pathlib_extensions import prepare_input_dir, prepare_input_file, prepare_output_file
 from pymediainfo import MediaInfo
+
+log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(
+    level=getattr(logging, log_level, logging.INFO),
+    format="%(asctime)s %(levelname)s %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S",
+)
+logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).parents[1]
 HANDBRAKE_CONFIG = PROJECT_ROOT / "H264 NVENC CQ27.json"
@@ -43,12 +52,12 @@ def wait_until_file_stable(file_path: Path, check_interval_seconds: float = 2, s
     if not file_path.is_file():
         return False
     try:
-        print(f"Monitoring file: {file_path}")
+        logger.debug("Monitoring file: %s", file_path)
         start_time = last_change_time = time.time()
         last_stat = file_path.stat()
         # case 0: the file is already stable
         if start_time - last_stat.st_mtime >= stability_duration_seconds:
-            print(f"File is already stable: {file_path}")
+            logger.debug("File is already stable: %s", file_path)
             return True
         while True:
             time.sleep(check_interval_seconds)
@@ -56,27 +65,27 @@ def wait_until_file_stable(file_path: Path, check_interval_seconds: float = 2, s
             current_stat = file_path.stat()
             # case 1: file is empty
             if current_stat.st_size == 0:
-                print(f"File is empty: {file_path}")
+                logger.info("File is empty: %s", file_path)
                 return False
             # case 2: timeout
             if current_time - start_time >= timeout_seconds:
-                print(f"Timeout waiting for file to stabilize: {file_path}")
+                logger.info("Timeout waiting for file to stabilize: %s", file_path)
                 return False
             # case 3: file has changed
             # must check timeout first, otherwise this function will stuck on a constantly-changing file
             if current_stat.st_size != last_stat.st_size or current_stat.st_mtime != last_stat.st_mtime:
-                print(f"File has changed: {file_path}")
+                logger.info("File has changed: %s", file_path)
                 last_change_time = current_time
                 last_stat = current_stat
                 continue
             # case 4: file has stabilized
             if current_time - last_change_time >= stability_duration_seconds:
-                print(f"File has stabilized: {file_path}")
+                logger.debug("File has stabilized: %s", file_path)
                 return True
             # case 5: file did not change, but we're waiting for the stability duration to finish
-            print(f"Waiting for the stability duration to finish: {file_path}")
+            logger.debug("Waiting for the stability duration to finish: %s", file_path)
     except (OSError, FileNotFoundError) as e:
-        print(f"Could not wait for file {file_path} to stabilize due to {type(e).__name__}: {e}")
+        logger.error("Could not wait for file %s to stabilize due to %s: %s", file_path, type(e).__name__, e)
         return False
 
 
@@ -95,7 +104,7 @@ def is_h264_encoded(file_path: Path) -> bool | None:
             if track.track_type == "Video":
                 return track.format == "AVC"
     except Exception as e:
-        print(f"Could not check encoding of {file_path} due to {type(e).__name__}: {e}")
+        logger.error("Could not check encoding of %s due to %s: %s", file_path, type(e).__name__, e)
     return None
 
 
@@ -111,11 +120,11 @@ def get_output_file_path_for_mp4(input_file_path: Path, max_retries: int = 5) ->
         Path | None: Path for the output file, or None if no transcoding is needed.
     """
     if not input_file_path.exists():
-        print(f"Skipping missing input path: {input_file_path}")
+        logger.warning("Skipping missing input path: %s", input_file_path)
         return None
     match is_h264_encoded(input_file_path):
         case True:
-            print(f"MP4 file is already encoded in H264: {input_file_path}")
+            logger.info("MP4 file is already encoded in H264: %s", input_file_path)
             return None
         case False:
             for counter in range(1, max_retries + 1):
@@ -125,7 +134,7 @@ def get_output_file_path_for_mp4(input_file_path: Path, max_retries: int = 5) ->
                     return new_path
                 # case 2: candidate path is an H264-encoded video file
                 elif new_path.is_file() and is_h264_encoded(new_path):
-                    print(f"A subsequent file encoded in H264 already exists: {input_file_path} -> {new_path}")
+                    logger.info("A subsequent file encoded in H264 already exists: %s -> %s", input_file_path, new_path)
                     return None
                 # case 3: candidate path exists but is not a file
                 continue
@@ -145,7 +154,7 @@ def get_output_file_path_for_mkv(input_file_path: Path) -> Path | None:
         Path | None: Path for the output MP4 file, or None if no transcoding is needed.
     """
     if not input_file_path.exists():
-        print(f"Skipping missing input path: {input_file_path}")
+        logger.warning("Skipping missing input path: %s", input_file_path)
         return None
     mp4_file_path = input_file_path.with_suffix(".mp4")
     if not mp4_file_path.exists():
@@ -207,9 +216,9 @@ def get_video_duration_milliseconds(file_path: Path) -> int | None:
             if track.track_type == "Video":
                 return int(float(track.duration))  # track.duration might look like '3614866.000000'
     except Exception as e:
-        print(f"Could not get duration of {file_path} due to {type(e).__name__}: {e}")
+        logger.error("Could not get duration of %s due to %s: %s", file_path, type(e).__name__, e)
         return None
-    print(f"Skipping duration check because no video track was found in {file_path}")
+    logger.warning("Skipping duration check because no video track was found in %s", file_path)
     return None
 
 
@@ -226,7 +235,7 @@ def transcode_video_file(input_file_path: Path, output_file_path: Path, config_f
     """
     temp_output_file_path = output_file_path.parent / (output_file_path.name + ".tmp")
     if temp_output_file_path.exists():
-        print(f"Skipping transcoding because the temp output path already exists: {temp_output_file_path}")
+        logger.warning("Skipping transcoding because the temp output path already exists: %s", temp_output_file_path)
         return
     command = [
         "HandBrakeCLI",
@@ -234,7 +243,7 @@ def transcode_video_file(input_file_path: Path, output_file_path: Path, config_f
         "-i", str(prepare_input_file(input_file_path)),
         "-o", str(prepare_output_file(temp_output_file_path)),
     ]
-    print(f"Starting subprocess: {command}")
+    logger.info("Starting subprocess: %s", command)
     # HandBrake may fail due to CUDA issues, in which case the container needs to be restarted
     try:
         duration_ms = get_video_duration_milliseconds(input_file_path)
@@ -242,9 +251,9 @@ def transcode_video_file(input_file_path: Path, output_file_path: Path, config_f
         subprocess.run(command, check=True, timeout=timeout_seconds)
         if not output_file_path.exists():
             temp_output_file_path.rename(output_file_path)
-        print(f"HandBrake finished successfully: {input_file_path} -> {output_file_path}")
+        logger.info("HandBrake finished successfully: %s -> %s", input_file_path, output_file_path)
     except subprocess.TimeoutExpired:
-        print(f"HandBrake timed out after {timeout_seconds} seconds processing {input_file_path}")
+        logger.error("HandBrake timed out after %s seconds processing %s", timeout_seconds, input_file_path)
         temp_output_file_path.unlink(missing_ok=True)
         raise
 
@@ -259,22 +268,22 @@ def monitor_and_transcode(*dir_paths: Path, check_interval_seconds: float = 60) 
     """
     while True:
         if not is_gpu_healthy():
-            print("GPU health check failed. Restarting...")
+            logger.critical("GPU health check failed. Restarting...")
             sys.exit(2)  # ENOENT
         for input_file_path, output_file_path in chain.from_iterable(map(yield_transcode_tasks, dir_paths)):
             transcode_video_file(input_file_path, output_file_path)
             input_duration_ms = get_video_duration_milliseconds(input_file_path)
             if input_duration_ms is None:
-                print(f"Skipping duration check because no video track was found in {input_file_path}")
+                logger.warning("Skipping duration check because no video track was found in %s", input_file_path)
                 continue
             output_duration_ms = get_video_duration_milliseconds(output_file_path)
             if output_duration_ms is None:
-                print(f"Skipping duration check because no video track was found in {output_file_path}")
+                logger.warning("Skipping duration check because no video track was found in %s", output_file_path)
                 continue
             if abs(input_duration_ms - output_duration_ms) > 500:  # at 30 fps, 500ms is 15 frames
-                print(f"Duration mismatch: {input_file_path} ({input_duration_ms}ms) -> {output_file_path} ({output_duration_ms}ms)")
+                logger.error("Duration mismatch: %s (%sms) -> %s (%sms)", input_file_path, input_duration_ms, output_file_path, output_duration_ms)
                 output_file_path.unlink(missing_ok=True)
-        print(f"Sleeping for {check_interval_seconds} seconds...")
+        logger.debug("Sleeping for %s seconds...", check_interval_seconds)
         time.sleep(check_interval_seconds)
 
 
