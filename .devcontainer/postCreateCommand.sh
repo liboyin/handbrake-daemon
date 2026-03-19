@@ -1,4 +1,5 @@
 #! /bin/bash
+set -euo pipefail
 # deployment dependencies are installed as root, but current user is ubuntu
 sudo pip install -r requirements.txt
 sudo pip install -r requirements-dev.txt
