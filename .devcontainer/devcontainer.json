@@ -20,16 +20,16 @@
                 "anthropic.claude-code",
                 "charliermarsh.ruff",
                 "github.vscode-github-actions",
-                "google.gemini-cli-vscode-ide-companion",
-                "yzhang.markdown-all-in-one",
                 "mhutchie.git-graph",
                 "ms-python.debugpy",
                 "ms-python.python",
                 "ms-python.vscode-pylance",
                 "ms-vscode.live-server",
+                "openai.chatgpt",
                 "ryu1kn.partial-diff",
                 "streetsidesoftware.code-spell-checker",
-                "tamasfe.even-better-toml"
+                "tamasfe.even-better-toml",
+                "yzhang.markdown-all-in-one"
             ]
         }
     }
