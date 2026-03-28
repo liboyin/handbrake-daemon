@@ -16,15 +16,16 @@ dependencies = [
 ]
 
 [tool.mypy]
-ignore_missing_imports = true
 check_untyped_defs = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_unused_configs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
 strict_optional = true
+warn_redundant_casts = true
+warn_unused_configs = true
+warn_unused_ignores = true
 
 [tool.pytest.ini_options]
-addopts = "--cov=handbrake_daemon --cov-report html --cov-report=term"
+addopts = "--cov=handbrake_daemon --cov-report=term-missing --cov-fail-under=85"
 pythonpath = ["."]
 
 [tool.setuptools.packages]
