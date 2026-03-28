@@ -1,5 +1,5 @@
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -111,18 +111,84 @@ def test_get_output_file_path_unsupported_format(tmp_path):
         testee.get_output_file_path(tmp_path / "test.avi")
 
 
-def test_yield_transcode_tasks(mocker, tmp_path):
-    mocker.patch.object(testee, "prepare_input_dir", lambda x: None)
-    mkv_file = tmp_path / "test.mkv"
-    mp4_file = tmp_path / "test.mp4"
+def test_yield_transcode_tasks_yields_case_insensitive_video_files(tmp_path):
+    """Yields transcode tasks for MKV and MP4 files regardless of suffix casing."""
+    mkv_file = tmp_path / "movie.MKV"
+    mp4_file = tmp_path / "clip.Mp4"
     mkv_file.touch()
     mp4_file.touch()
-    mocker.patch.object(testee, "wait_until_file_stable", return_value=True)
-    mocker.patch.object(testee, "get_output_file_path", lambda x: x.with_suffix(".output.mp4"))
-    tasks = list(testee.yield_transcode_tasks(tmp_path))
-    assert len(tasks) == 2
-    assert all(isinstance(task, tuple) and len(task) == 2 for task in tasks)
-    assert all(isinstance(task[1], Path) and task[1].suffix == ".mp4" for task in tasks)
+
+    with (
+        patch.object(testee, "prepare_input_dir") as mock_prepare_input_dir,
+        patch.object(testee, "wait_until_file_stable", return_value=True) as mock_wait_until_file_stable,
+        patch.object(testee, "get_output_file_path", side_effect=lambda path: path.with_suffix(".output.mp4")) as mock_get_output_file_path,
+    ):
+        tasks = set(testee.yield_transcode_tasks(tmp_path))
+
+    assert tasks == {
+        (mkv_file, mkv_file.with_suffix(".output.mp4")),
+        (mp4_file, mp4_file.with_suffix(".output.mp4")),
+    }
+    mock_prepare_input_dir.assert_called_once_with(tmp_path)
+    assert mock_wait_until_file_stable.call_count == 2
+    assert mock_get_output_file_path.call_count == 2
+
+
+def test_yield_transcode_tasks_skips_temp_files_and_directories(tmp_path):
+    """Skips temporary video files and directory entries during task discovery."""
+    real_file = tmp_path / "movie.mkv"
+    temp_mkv_file = tmp_path / "movie.tmp.mkv"
+    temp_mp4_file = tmp_path / "movie.temp.mp4"
+    fake_mp4_dir = tmp_path / "folder.mp4"
+    real_file.touch()
+    temp_mkv_file.touch()
+    temp_mp4_file.touch()
+    fake_mp4_dir.mkdir()
+
+    with (
+        patch.object(testee, "prepare_input_dir"),
+        patch.object(testee, "wait_until_file_stable", return_value=True) as mock_wait_until_file_stable,
+        patch.object(testee, "get_output_file_path", side_effect=lambda path: path.with_suffix(".output.mp4")) as mock_get_output_file_path,
+    ):
+        tasks = list(testee.yield_transcode_tasks(tmp_path))
+
+    assert tasks == [(real_file, real_file.with_suffix(".output.mp4"))]
+    mock_wait_until_file_stable.assert_called_once_with(real_file)
+    mock_get_output_file_path.assert_called_once_with(real_file)
+
+
+def test_yield_transcode_tasks_skips_unstable_files_and_missing_outputs(tmp_path):
+    """Skips files that are unstable or do not produce an output path."""
+    unstable_file = tmp_path / "unstable.mkv"
+    no_output_file = tmp_path / "already_h264.mp4"
+    needs_output_file = tmp_path / "needs_transcode.mp4"
+    unstable_file.touch()
+    no_output_file.touch()
+    needs_output_file.touch()
+
+    with (
+        patch.object(testee, "prepare_input_dir"),
+        patch.object(
+            testee,
+            "wait_until_file_stable",
+            side_effect=lambda path: path != unstable_file,
+        ) as mock_wait_until_file_stable,
+        patch.object(
+            testee,
+            "get_output_file_path",
+            side_effect=lambda path: None if path == no_output_file else path.with_suffix(".output.mp4"),
+        ) as mock_get_output_file_path,
+    ):
+        tasks = set(testee.yield_transcode_tasks(tmp_path))
+
+    assert tasks == {
+        (needs_output_file, needs_output_file.with_suffix(".output.mp4")),
+    }
+    assert mock_wait_until_file_stable.call_count == 3
+    assert {call.args[0] for call in mock_get_output_file_path.call_args_list} == {
+        no_output_file,
+        needs_output_file,
+    }
 
 
 def test_get_video_duration_milliseconds(mocker, tmp_path):
