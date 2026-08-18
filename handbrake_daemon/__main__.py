@@ -1,13 +1,17 @@
-from itertools import chain
 import logging
 import os
-from pathlib import Path
 import subprocess
 import sys
 import time
-from typing import Iterator, Tuple
+from collections.abc import Iterator
+from itertools import chain
+from pathlib import Path
 
-from pathlib_extensions import prepare_input_dir, prepare_input_file, prepare_output_file
+from pathlib_extensions import (
+    prepare_input_dir,
+    prepare_input_file,
+    prepare_output_file,
+)
 from pymediainfo import MediaInfo
 
 log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
@@ -184,7 +188,7 @@ def get_output_file_path(input_file_path: Path) -> Path | None:
             raise ValueError(f"Unsupported file type: {input_file_path}")
 
 
-def yield_transcode_tasks(dir_path: Path) -> Iterator[Tuple[Path, Path]]:
+def yield_transcode_tasks(dir_path: Path) -> Iterator[tuple[Path, Path]]:
     """
     Yield all video file paths in a directory that need transcoding.
 
