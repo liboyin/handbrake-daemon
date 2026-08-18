@@ -2,8 +2,8 @@
 
 set -euo pipefail
 
-# Configure APT proxy
-if [ -v APT_PROXY ]; then
+# Configure APT proxy when provided.
+if [ -n "${APT_PROXY:-}" ]; then
     APT_CONF_PATH=/etc/apt/apt.conf.d/01proxy
     echo "Acquire::http::Proxy \"$APT_PROXY\";" > $APT_CONF_PATH
     cat $APT_CONF_PATH

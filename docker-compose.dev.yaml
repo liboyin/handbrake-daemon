@@ -3,8 +3,8 @@ services:
     build:
       context: .
       args:
-        APT_PROXY: http://192.168.0.4:3142
-        PYPI_PROXY: http://192.168.0.4:3141/root/pypi/+simple/
+        APT_PROXY: ${APT_PROXY:-}
+        PYPI_PROXY: ${PYPI_PROXY:-}
     container_name: handbrake-daemon-app
     init: true
     runtime: nvidia

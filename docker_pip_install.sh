@@ -13,8 +13,8 @@ no-compile = true
 root-user-action = ignore
 EOF
 
-# Configure PyPI proxy if defined
-if [ -v PYPI_PROXY ]; then
+# Configure PyPI proxy when provided.
+if [ -n "${PYPI_PROXY:-}" ]; then
     cat <<EOF >> "$PIP_CONF_PATH"
 index-url = $PYPI_PROXY
 trusted-host = $(echo "$PYPI_PROXY" | sed -E 's|https?://([^:/]+).*|\1|')
