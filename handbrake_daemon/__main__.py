@@ -196,7 +196,7 @@ def yield_transcode_tasks(dir_path: Path) -> Iterator[Tuple[Path, Path]]:
     """
     prepare_input_dir(dir_path)
     for suffix in (".mkv", ".mp4"):
-        for input_file_path in dir_path.glob(f"**/*{suffix}", case_sensitive=False):
+        for input_file_path in dir_path.rglob(f"*{suffix}", case_sensitive=False):
             if not input_file_path.is_file():
                 continue
             file_name = input_file_path.name
