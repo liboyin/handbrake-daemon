@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.6.3-runtime-ubuntu24.04
+FROM nvidia/cuda:13.3.1-runtime-ubuntu26.04
 
 ARG APT_PROXY
 ARG PYPI_PROXY
