@@ -90,6 +90,16 @@ def test_wait_until_file_stable_handles_os_error(mocker):
     assert testee.wait_until_file_stable(f) is False
 
 
+def test_wait_until_file_stable_returns_false_when_file_disappears(mocker):
+    """Returns false when the file is removed while it is being monitored."""
+    f = mocker.MagicMock(spec=testee.Path)
+    f.is_file.return_value = True
+    f.stat.side_effect = [Mock(st_mtime=100, st_size=100), FileNotFoundError("gone")]
+    mocker.patch.object(testee.time, "time", return_value=100)
+    mocker.patch.object(testee.time, "sleep")
+    assert testee.wait_until_file_stable(f) is False
+
+
 @pytest.mark.parametrize("format,expected", [("AVC", True), ("HEVC", False)])
 def test_is_h264_encoded(mocker, tmp_path, format, expected):
     """Detects whether the first video track is encoded as AVC."""
@@ -105,13 +115,23 @@ def test_is_h264_encoded_no_video_track(mocker, tmp_path):
     assert testee.is_h264_encoded(tmp_path / "test.mp4") is None
 
 
-def test_is_h264_encoded_returns_none_on_parse_error(tmp_path):
-    """Returns none when media-info parsing raises an exception."""
+@pytest.mark.parametrize("error", [RuntimeError("parse failed"), OSError("libmediainfo not found"), ValueError("bad input")])
+def test_is_h264_encoded_returns_none_on_parse_error(tmp_path, caplog, error):
+    """Returns none and logs an error when media-info parsing raises an exception."""
     with (
         patch.object(testee, "prepare_input_file", side_effect=lambda path: path),
-        patch.object(testee.MediaInfo, "parse", side_effect=RuntimeError("parse failed")),
+        patch.object(testee.MediaInfo, "parse", side_effect=error),
     ):
         assert testee.is_h264_encoded(tmp_path / "test.mp4") is None
+    assert "Could not check encoding" in caplog.text
+
+
+@pytest.mark.parametrize("name", ["missing.mp4", "directory.mp4"])
+def test_is_h264_encoded_returns_none_for_unreadable_input(tmp_path, caplog, name):
+    """Returns none and logs an error when the input is missing or not a file."""
+    (tmp_path / "directory.mp4").mkdir()
+    assert testee.is_h264_encoded(tmp_path / name) is None
+    assert "Could not check encoding" in caplog.text
 
 
 def test_get_output_file_path_for_mp4_file_not_exists(tmp_path):
@@ -308,10 +328,20 @@ def test_get_video_duration_milliseconds_no_video_track(mocker, tmp_path):
     assert testee.get_video_duration_milliseconds(tmp_path / "test.mp4") is None
 
 
-def test_get_video_duration_milliseconds_returns_none_on_parse_error(tmp_path):
-    """Returns none when media-info duration parsing raises an exception."""
-    with patch.object(testee.MediaInfo, "parse", side_effect=RuntimeError("parse failed")):
+@pytest.mark.parametrize("error", [RuntimeError("parse failed"), OSError("libmediainfo not found"), ValueError("bad input")])
+def test_get_video_duration_milliseconds_returns_none_on_parse_error(tmp_path, caplog, error):
+    """Returns none and logs an error when media-info duration parsing raises an exception."""
+    with patch.object(testee.MediaInfo, "parse", side_effect=error):
         assert testee.get_video_duration_milliseconds(tmp_path / "test.mp4") is None
+    assert "Could not get duration" in caplog.text
+
+
+@pytest.mark.parametrize("duration", [None, "N/A"])
+def test_get_video_duration_milliseconds_returns_none_for_unparseable_duration(tmp_path, caplog, duration):
+    """Returns none and logs an error when the video track's duration is missing or not numeric."""
+    with patch.object(testee.MediaInfo, "parse", return_value=Mock(tracks=[Mock(track_type="Video", duration=duration)])):
+        assert testee.get_video_duration_milliseconds(tmp_path / "test.mp4") is None
+    assert "Could not get duration" in caplog.text
 
 
 def test_transcode_video_file_timeout_multiplier(mocker, tmp_path):
@@ -355,14 +385,38 @@ def test_transcode_video_file_temp_exists(mocker, tmp_path):
 
 
 def test_transcode_video_file_timeout_unlinks_temp(mocker, tmp_path):
-    """Removes the temporary output file when HandBrake times out."""
+    """Removes the partial temporary output and publishes nothing when HandBrake times out."""
     input_file = tmp_path / "in.mp4"
     input_file.touch()
     output_file = tmp_path / "out.mp4"
-    mocker.patch("subprocess.run", side_effect=testee.subprocess.TimeoutExpired(["HandBrakeCLI"], 10))
+
+    def run(command, **kwargs):
+        testee.Path(command[command.index("-o") + 1]).write_bytes(b"partial")
+        raise testee.subprocess.TimeoutExpired(command, kwargs["timeout"])
+
+    mocker.patch.object(testee.subprocess, "run", side_effect=run)
     mocker.patch.object(testee, "get_video_duration_milliseconds", return_value=10000)
     with pytest.raises(testee.subprocess.TimeoutExpired):
         testee.transcode_video_file(input_file, output_file)
+    assert not (tmp_path / "out.mp4.tmp").exists()
+    assert not output_file.exists()
+
+
+def test_transcode_video_file_failure_propagates_without_publishing_output(mocker, tmp_path):
+    """Propagates a HandBrake failure without renaming its partial output to the final path."""
+    input_file = tmp_path / "in.mp4"
+    input_file.touch()
+    output_file = tmp_path / "out.mp4"
+
+    def run(command, **kwargs):
+        testee.Path(command[command.index("-o") + 1]).write_bytes(b"partial")
+        raise testee.subprocess.CalledProcessError(1, command)
+
+    mocker.patch.object(testee.subprocess, "run", side_effect=run)
+    mocker.patch.object(testee, "get_video_duration_milliseconds", return_value=10000)
+    with pytest.raises(testee.subprocess.CalledProcessError):
+        testee.transcode_video_file(input_file, output_file)
+    assert not output_file.exists()
 
 
 def test_monitor_and_transcode_gpu_fail(mocker, tmp_path):
