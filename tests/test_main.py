@@ -257,15 +257,18 @@ def test_yield_transcode_tasks_yields_case_insensitive_video_files(tmp_path):
 
 
 def test_yield_transcode_tasks_skips_temp_files_and_directories(tmp_path):
-    """Skips temporary video files and directory entries during task discovery."""
+    """Skips temporary video files, leftover transcoding stages and directory entries during task discovery."""
     real_file = tmp_path / "movie.mkv"
     temp_mkv_file = tmp_path / "movie.tmp.mkv"
     temp_mp4_file = tmp_path / "movie.temp.mp4"
     fake_mp4_dir = tmp_path / "folder.mp4"
+    leftover_stage_file = tmp_path / ".staging-killed" / "movie.mp4.tmp"
     real_file.touch()
     temp_mkv_file.touch()
     temp_mp4_file.touch()
     fake_mp4_dir.mkdir()
+    leftover_stage_file.parent.mkdir()
+    leftover_stage_file.touch()
 
     with (
         patch.object(testee, "prepare_input_dir"),
@@ -344,17 +347,18 @@ def test_get_video_duration_milliseconds_returns_none_for_unparseable_duration(t
     assert "Could not get duration" in caplog.text
 
 
+def _staged_output_path(command):
+    """Return the output path passed to HandBrake in a mocked command."""
+    return testee.Path(command[command.index("-o") + 1])
+
+
 def test_transcode_video_file_timeout_multiplier(mocker, tmp_path):
     """Uses a timeout equal to one and a half times the input duration."""
     input_file = tmp_path / "test.mp4"
     input_file.touch()
-    output_file = tmp_path / "out.mp4"
     mocker.patch.object(testee, "get_video_duration_milliseconds", return_value=60000)
-    mock_run = mocker.patch("subprocess.run")
-    mocker.patch.object(testee, "prepare_input_file", return_value=input_file)
-    mocker.patch.object(testee, "prepare_output_file", return_value=output_file.with_suffix(".mp4.tmp"))
-    mocker.patch("pathlib.Path.rename")
-    testee.transcode_video_file(input_file, output_file)
+    mock_run = mocker.patch.object(testee.subprocess, "run", side_effect=lambda command, **kwargs: _staged_output_path(command).touch())
+    testee.transcode_video_file(input_file, tmp_path / "out.mp4")
     mock_run.assert_called_once()
     assert mock_run.call_args.kwargs["timeout"] == 90.0  # 60s * 1.5 = 90.0
 
@@ -363,60 +367,86 @@ def test_transcode_video_file_timeout_no_duration(mocker, tmp_path):
     """Falls back to the default timeout when input duration is unavailable."""
     input_file = tmp_path / "test.mp4"
     input_file.touch()
-    output_file = tmp_path / "out.mp4"
     mocker.patch.object(testee, "get_video_duration_milliseconds", return_value=None)
-    mock_run = mocker.patch("subprocess.run")
-    mocker.patch.object(testee, "prepare_input_file", return_value=input_file)
-    mocker.patch.object(testee, "prepare_output_file", return_value=output_file.with_suffix(".mp4.tmp"))
-    mocker.patch("pathlib.Path.rename")
-    testee.transcode_video_file(input_file, output_file)
+    mock_run = mocker.patch.object(testee.subprocess, "run", side_effect=lambda command, **kwargs: _staged_output_path(command).touch())
+    testee.transcode_video_file(input_file, tmp_path / "out.mp4")
     mock_run.assert_called_once()
     assert mock_run.call_args.kwargs["timeout"] == 7200.0  # 7_200_000 / 1000 = 7200.0
 
 
-def test_transcode_video_file_temp_exists(mocker, tmp_path):
-    """Skips transcoding when the temporary output path already exists."""
+def test_transcode_video_file_publishes_staged_output_and_removes_stage(mocker, tmp_path):
+    """Has HandBrake write a .tmp file in a hidden directory beside the output, then publishes it and removes the stage."""
+    input_file = tmp_path / "in.mp4"
+    input_file.touch()
     output_file = tmp_path / "out.mp4"
-    temp_file = output_file.parent / (output_file.name + ".tmp")
-    temp_file.touch()
-    mock_run = mocker.patch("subprocess.run")
-    testee.transcode_video_file(tmp_path / "in.mp4", output_file)
-    mock_run.assert_not_called()
+    staged_paths = []
+
+    def run(command, **kwargs):
+        staged_paths.append(_staged_output_path(command))
+        staged_paths[-1].write_bytes(b"transcoded")
+
+    mocker.patch.object(testee.subprocess, "run", side_effect=run)
+    mocker.patch.object(testee, "get_video_duration_milliseconds", return_value=10000)
+    assert testee.transcode_video_file(input_file, output_file) == output_file
+    assert output_file.read_bytes() == b"transcoded"
+    [staged_path] = staged_paths
+    assert staged_path.name == "out.mp4.tmp"
+    assert staged_path.parent.parent == tmp_path
+    assert staged_path.parent.name.startswith(".")
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["in.mp4", "out.mp4"]
 
 
-def test_transcode_video_file_timeout_unlinks_temp(mocker, tmp_path):
-    """Removes the partial temporary output and publishes nothing when HandBrake times out."""
+def test_transcode_video_file_keeps_file_appearing_at_output_path(mocker, tmp_path, caplog):
+    """Keeps a file that appears at the output path during transcoding, discards the transcode and returns none."""
     input_file = tmp_path / "in.mp4"
     input_file.touch()
     output_file = tmp_path / "out.mp4"
 
     def run(command, **kwargs):
-        testee.Path(command[command.index("-o") + 1]).write_bytes(b"partial")
+        _staged_output_path(command).write_bytes(b"transcoded")
+        output_file.write_bytes(b"existing")
+
+    mocker.patch.object(testee.subprocess, "run", side_effect=run)
+    mocker.patch.object(testee, "get_video_duration_milliseconds", return_value=10000)
+    assert testee.transcode_video_file(input_file, output_file) is None
+    assert output_file.read_bytes() == b"existing"
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["in.mp4", "out.mp4"]
+    assert "Discarding transcoded output" in caplog.text
+
+
+def test_transcode_video_file_timeout_removes_stage(mocker, tmp_path, caplog):
+    """Removes the partial staged output and publishes nothing when HandBrake times out."""
+    input_file = tmp_path / "in.mp4"
+    input_file.touch()
+    output_file = tmp_path / "out.mp4"
+
+    def run(command, **kwargs):
+        _staged_output_path(command).write_bytes(b"partial")
         raise testee.subprocess.TimeoutExpired(command, kwargs["timeout"])
 
     mocker.patch.object(testee.subprocess, "run", side_effect=run)
     mocker.patch.object(testee, "get_video_duration_milliseconds", return_value=10000)
     with pytest.raises(testee.subprocess.TimeoutExpired):
         testee.transcode_video_file(input_file, output_file)
-    assert not (tmp_path / "out.mp4.tmp").exists()
-    assert not output_file.exists()
+    assert [path.name for path in tmp_path.iterdir()] == ["in.mp4"]
+    assert "HandBrake timed out after 15.0 seconds" in caplog.text
 
 
 def test_transcode_video_file_failure_propagates_without_publishing_output(mocker, tmp_path):
-    """Propagates a HandBrake failure without renaming its partial output to the final path."""
+    """Propagates a HandBrake failure, removing its partial staged output without publishing it."""
     input_file = tmp_path / "in.mp4"
     input_file.touch()
     output_file = tmp_path / "out.mp4"
 
     def run(command, **kwargs):
-        testee.Path(command[command.index("-o") + 1]).write_bytes(b"partial")
+        _staged_output_path(command).write_bytes(b"partial")
         raise testee.subprocess.CalledProcessError(1, command)
 
     mocker.patch.object(testee.subprocess, "run", side_effect=run)
     mocker.patch.object(testee, "get_video_duration_milliseconds", return_value=10000)
     with pytest.raises(testee.subprocess.CalledProcessError):
         testee.transcode_video_file(input_file, output_file)
-    assert not output_file.exists()
+    assert [path.name for path in tmp_path.iterdir()] == ["in.mp4"]
 
 
 def test_monitor_and_transcode_gpu_fail(mocker, tmp_path):
@@ -428,34 +458,58 @@ def test_monitor_and_transcode_gpu_fail(mocker, tmp_path):
 
 
 def test_monitor_and_transcode_success_loop(mocker, tmp_path):
-    """Transcodes discovered files when the GPU is healthy and durations match."""
+    """Transcodes discovered files and checks the published output's duration when the GPU is healthy."""
     mocker.patch.object(testee, "is_gpu_healthy", return_value=True)
     input_file = tmp_path / "in.mp4"
     output_file = tmp_path / "out.mp4"
+    output_file.touch()
     mocker.patch.object(testee, "yield_transcode_tasks", return_value=[(input_file, output_file)])
-    mocker.patch.object(testee, "transcode_video_file")
-    mocker.patch.object(testee, "get_video_duration_milliseconds", side_effect=[10000, 10000])
+    mocker.patch.object(testee, "transcode_video_file", return_value=output_file)
+    mock_duration = mocker.patch.object(testee, "get_video_duration_milliseconds", side_effect=[10000, 10000])
     # break loop on sleep
     mocker.patch("time.sleep", side_effect=KeyboardInterrupt)
     with pytest.raises(KeyboardInterrupt):
         testee.monitor_and_transcode(tmp_path)
     testee.transcode_video_file.assert_called_once_with(input_file, output_file)
+    assert [call.args[0] for call in mock_duration.call_args_list] == [input_file, output_file]
+    assert output_file.exists()
 
 
-def test_monitor_and_transcode_duration_mismatch(mocker, tmp_path):
-    """Deletes the output file when transcoding produces a duration mismatch."""
+def test_monitor_and_transcode_skips_duration_check_when_nothing_published(mocker, tmp_path):
+    """Neither checks nor deletes a file kept at the output path when transcoding published nothing."""
     mocker.patch.object(testee, "is_gpu_healthy", return_value=True)
     mocker.patch("time.sleep", side_effect=KeyboardInterrupt)
     input_file = tmp_path / "in.mp4"
     output_file = tmp_path / "out.mp4"
     output_file.touch()
     mocker.patch.object(testee, "yield_transcode_tasks", return_value=[(input_file, output_file)])
-    mocker.patch.object(testee, "transcode_video_file")
-    # mismatch durations: 10000 vs 9000
-    mocker.patch.object(testee, "get_video_duration_milliseconds", side_effect=[10000, 9000])
+    mocker.patch.object(testee, "transcode_video_file", return_value=None)
+    mock_duration = mocker.patch.object(testee, "get_video_duration_milliseconds", side_effect=[10000, 9000])
     with pytest.raises(KeyboardInterrupt):
         testee.monitor_and_transcode(tmp_path)
-    assert not output_file.exists()  # mismatched file should be unlinked
+    assert output_file.exists()
+    mock_duration.assert_not_called()
+
+
+def test_monitor_and_transcode_duration_mismatch(mocker, tmp_path):
+    """Deletes the published output, and not the requested output path, when transcoding produces a duration mismatch."""
+    mocker.patch.object(testee, "is_gpu_healthy", return_value=True)
+    mocker.patch("time.sleep", side_effect=KeyboardInterrupt)
+    input_file = tmp_path / "in.mp4"
+    output_file = tmp_path / "out.mp4"
+    published_file = tmp_path / "resolved" / "out.mp4"
+    output_file.touch()
+    published_file.parent.mkdir()
+    published_file.touch()
+    mocker.patch.object(testee, "yield_transcode_tasks", return_value=[(input_file, output_file)])
+    mocker.patch.object(testee, "transcode_video_file", return_value=published_file)
+    # mismatch durations: 10000 vs 9000
+    mock_duration = mocker.patch.object(testee, "get_video_duration_milliseconds", side_effect=[10000, 9000])
+    with pytest.raises(KeyboardInterrupt):
+        testee.monitor_and_transcode(tmp_path)
+    assert not published_file.exists()  # mismatched file should be unlinked
+    assert output_file.exists()
+    assert [call.args[0] for call in mock_duration.call_args_list] == [input_file, published_file]
 
 
 def test_monitor_and_transcode_missing_durations(mocker, tmp_path):
@@ -466,7 +520,7 @@ def test_monitor_and_transcode_missing_durations(mocker, tmp_path):
     output_file = tmp_path / "out.mp4"
     output_file.touch()
     mocker.patch.object(testee, "yield_transcode_tasks", return_value=[(input_file, output_file)])
-    mocker.patch.object(testee, "transcode_video_file")
+    mocker.patch.object(testee, "transcode_video_file", return_value=output_file)
     # Check scenario where input duration is None
     mocker.patch.object(testee, "get_video_duration_milliseconds", return_value=None)
     with pytest.raises(KeyboardInterrupt):
@@ -482,7 +536,7 @@ def test_monitor_and_transcode_skips_missing_output_duration(mocker, tmp_path):
     output_file = tmp_path / "out.mp4"
     output_file.touch()
     mocker.patch.object(testee, "yield_transcode_tasks", return_value=[(input_file, output_file)])
-    mocker.patch.object(testee, "transcode_video_file")
+    mocker.patch.object(testee, "transcode_video_file", return_value=output_file)
     mocker.patch.object(testee, "get_video_duration_milliseconds", side_effect=[10000, None])
     with pytest.raises(KeyboardInterrupt):
         testee.monitor_and_transcode(tmp_path)

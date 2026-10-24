@@ -8,9 +8,10 @@ from itertools import chain
 from pathlib import Path
 
 from pathlib_extensions import (
+    OverwritePolicy,
+    StagedFile,
     prepare_input_dir,
     prepare_input_file,
-    prepare_output_file,
 )
 from pymediainfo import MediaInfo
 
@@ -231,45 +232,53 @@ def get_video_duration_milliseconds(file_path: Path) -> int | None:
     return None
 
 
-def transcode_video_file(input_file_path: Path, output_file_path: Path, config_file_path: Path = HANDBRAKE_CONFIG) -> None:
+def transcode_video_file(input_file_path: Path, output_file_path: Path, config_file_path: Path = HANDBRAKE_CONFIG) -> Path | None:
     """
     Transcode a video file using HandBrake CLI.
 
-    During transcoding, it writes to a temporary output file. This file is renamed to the final output filename if HandBrake exit with 0.
+    HandBrake writes to a `.tmp` file inside a hidden staging directory beside the output, which is removed on every exit unless the process is killed. The file is published to the output path only if HandBrake exits with 0, and never over an existing file.
 
     Args:
         input_file_path (Path): Path to the input video file.
         output_file_path (Path): Path to the output video file.
         config_file_path (Path, optional): Path to HandBrake config file. Defaults to `HANDBRAKE_CONFIG`.
+
+    Returns:
+        Path | None: Where the output was published (the output path resolved through symlinks), or None if a file appeared at the output path during transcoding and was kept.
+
+    Raises:
+        subprocess.CalledProcessError: If HandBrake exits with a non-zero code.
+        subprocess.TimeoutExpired: If HandBrake runs longer than 1.5 times the input duration, or 2 hours if it is unknown.
     """
-    temp_output_file_path = output_file_path.parent / (output_file_path.name + ".tmp")
-    if temp_output_file_path.exists():
-        logger.warning("Skipping transcoding because the temp output path already exists: %s", temp_output_file_path)
-        return
-    command = [
-        "HandBrakeCLI",
-        "--preset-import-file", str(config_file_path),
-        "-i", str(prepare_input_file(input_file_path)),
-        "-o", str(prepare_output_file(temp_output_file_path)),
-    ]
-    logger.info("Starting subprocess: %s", command)
-    # HandBrake may fail due to CUDA issues, in which case the container needs to be restarted
-    try:
-        duration_ms = get_video_duration_milliseconds(input_file_path)
-        timeout_seconds = (duration_ms * 1.5 if duration_ms else 7_200_000) / 1000  # default to 2 hours timeout
-        subprocess.run(command, check=True, timeout=timeout_seconds)
-        if not output_file_path.exists():
-            temp_output_file_path.rename(output_file_path)
-        logger.info("HandBrake finished successfully: %s -> %s", input_file_path, output_file_path)
-    except subprocess.TimeoutExpired:
-        logger.error("HandBrake timed out after %s seconds processing %s", timeout_seconds, input_file_path)
-        temp_output_file_path.unlink(missing_ok=True)
-        raise
+    # The .tmp suffix keeps a stage left behind by a killed process out of yield_transcode_tasks
+    with StagedFile(output_file_path, OverwritePolicy.NEVER, name=output_file_path.name + ".tmp") as staged:
+        command = [
+            "HandBrakeCLI",
+            "--preset-import-file", str(config_file_path),
+            "-i", str(prepare_input_file(input_file_path)),
+            "-o", str(staged.path),
+        ]
+        logger.info("Starting subprocess: %s", command)
+        # HandBrake may fail due to CUDA issues, in which case the container needs to be restarted
+        try:
+            duration_ms = get_video_duration_milliseconds(input_file_path)
+            timeout_seconds = (duration_ms * 1.5 if duration_ms else 7_200_000) / 1000  # default to 2 hours timeout
+            subprocess.run(command, check=True, timeout=timeout_seconds)
+        except subprocess.TimeoutExpired:
+            logger.error("HandBrake timed out after %s seconds processing %s", timeout_seconds, input_file_path)
+            raise
+    if staged.published is None:
+        logger.warning("Discarding transcoded output because a file appeared at the output path: %s", output_file_path)
+        return None
+    logger.info("HandBrake finished successfully: %s -> %s", input_file_path, staged.published)
+    return staged.published
 
 
 def monitor_and_transcode(*dir_paths: Path, check_interval_seconds: float = 60) -> None:
     """
     Monitor directories and transcode new video files as they appear. After transcoding, it verifies that input and output video durations match.
+
+    Only an output this daemon published is checked, and deleted on a duration mismatch.
 
     Args:
         *dir_paths (Path): One or more directory paths to monitor.
@@ -280,18 +289,20 @@ def monitor_and_transcode(*dir_paths: Path, check_interval_seconds: float = 60) 
             logger.critical("GPU health check failed. Restarting...")
             sys.exit(2)  # ENOENT
         for input_file_path, output_file_path in chain.from_iterable(map(yield_transcode_tasks, dir_paths)):
-            transcode_video_file(input_file_path, output_file_path)
+            published_file_path = transcode_video_file(input_file_path, output_file_path)
+            if published_file_path is None:
+                continue
             input_duration_ms = get_video_duration_milliseconds(input_file_path)
             if input_duration_ms is None:
                 logger.warning("Skipping duration check because no video track was found in %s", input_file_path)
                 continue
-            output_duration_ms = get_video_duration_milliseconds(output_file_path)
+            output_duration_ms = get_video_duration_milliseconds(published_file_path)
             if output_duration_ms is None:
-                logger.warning("Skipping duration check because no video track was found in %s", output_file_path)
+                logger.warning("Skipping duration check because no video track was found in %s", published_file_path)
                 continue
             if abs(input_duration_ms - output_duration_ms) > 500:  # at 30 fps, 500ms is 15 frames
-                logger.error("Duration mismatch: %s (%sms) -> %s (%sms)", input_file_path, input_duration_ms, output_file_path, output_duration_ms)
-                output_file_path.unlink(missing_ok=True)
+                logger.error("Duration mismatch: %s (%sms) -> %s (%sms)", input_file_path, input_duration_ms, published_file_path, output_duration_ms)
+                published_file_path.unlink(missing_ok=True)
         logger.debug("Sleeping for %s seconds...", check_interval_seconds)
         time.sleep(check_interval_seconds)
 
