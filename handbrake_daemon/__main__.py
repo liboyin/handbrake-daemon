@@ -36,7 +36,7 @@ def is_gpu_healthy() -> bool:
     try:
         result = subprocess.run(["nvidia-smi"], check=False, capture_output=True)
         return result.returncode == 0
-    except Exception:
+    except OSError:  # nvidia-smi is missing or cannot be executed
         return False
 
 
@@ -107,7 +107,7 @@ def is_h264_encoded(file_path: Path) -> bool | None:
         for track in MediaInfo.parse(prepare_input_file(file_path)).tracks:
             if track.track_type == "Video":
                 return track.format == "AVC"
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - an unreadable file must not stop the daemon
         logger.error("Could not check encoding of %s due to %s: %s", file_path, type(e).__name__, e)
     return None
 
@@ -224,7 +224,7 @@ def get_video_duration_milliseconds(file_path: Path) -> int | None:
         for track in MediaInfo.parse(file_path).tracks:
             if track.track_type == "Video":
                 return int(float(track.duration))  # track.duration might look like '3614866.000000'
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - an unreadable file must not stop the daemon
         logger.error("Could not get duration of %s due to %s: %s", file_path, type(e).__name__, e)
         return None
     logger.warning("Skipping duration check because no video track was found in %s", file_path)

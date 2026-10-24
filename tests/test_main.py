@@ -13,12 +13,20 @@ def test_is_gpu_healthy_true(mocker):
 
 @pytest.mark.parametrize("return_value,side_effect", [
     (Mock(returncode=1), None),
-    (None, Exception("nvidia-smi not found")),
+    (None, FileNotFoundError("nvidia-smi")),
+    (None, PermissionError("nvidia-smi")),
 ])
 def test_is_gpu_healthy_false(mocker, return_value, side_effect):
-    """Returns false when the GPU health check fails or raises an error."""
-    mocker.patch("subprocess.run", return_value=return_value, side_effect=side_effect)
+    """Returns false when the GPU health check fails or cannot be executed."""
+    mocker.patch.object(testee.subprocess, "run", return_value=return_value, side_effect=side_effect)
     assert testee.is_gpu_healthy() is False
+
+
+def test_is_gpu_healthy_propagates_unexpected_errors(mocker):
+    """Propagates errors other than a failure to execute the GPU health check."""
+    mocker.patch.object(testee.subprocess, "run", side_effect=ValueError("unexpected"))
+    with pytest.raises(ValueError, match="unexpected"):
+        testee.is_gpu_healthy()
 
 
 def test_wait_until_file_stable_not_exists(tmp_path):
