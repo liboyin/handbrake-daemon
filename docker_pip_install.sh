@@ -23,7 +23,7 @@ fi
 
 cat "$PIP_CONF_PATH"
 
-pip install -r requirements.txt
+pip install .
 
 # Remove pip cache
 pip_cache_dirs=(

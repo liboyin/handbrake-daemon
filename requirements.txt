@@ -1,2 +1,0 @@
-pathlib-extensions @ git+https://github.com/liboyin/pathlib-extensions.git
-pymediainfo

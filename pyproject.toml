@@ -15,6 +15,17 @@ dependencies = [
   "pymediainfo",
 ]
 
+[project.optional-dependencies]
+dev = [
+  "ipython",
+  "mypy",
+  "pytest",
+  "pytest-cov",
+  "pytest-mock",
+  "pytest-randomly",
+  "ruff",
+]
+
 [tool.mypy]
 check_untyped_defs = true
 disallow_untyped_defs = true
@@ -26,7 +37,6 @@ warn_unused_ignores = true
 
 [tool.pytest.ini_options]
 addopts = "--cov=handbrake_daemon --cov-report=term-missing --cov-fail-under=95"
-pythonpath = ["."]
 
 [tool.coverage.run]
 branch = true
