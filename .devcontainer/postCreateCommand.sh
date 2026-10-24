@@ -3,9 +3,6 @@ set -euo pipefail
 # deployment dependencies are installed as root, but current user is ubuntu
 sudo pip install -e .[dev]
 # use native installer of Claude Code
-# curl -fsSL https://claude.ai/install.sh | bash
-# install nodeJS + Gemini CLI
-# sudo apt-get update
-# curl -fsSL https://deb.nodesource.com/setup_25.x | sudo -E bash -
-# sudo apt-get install -y --no-install-recommends nodejs
-# sudo npm install -g @google/gemini-cli
+curl -fsSL https://claude.ai/install.sh | bash
+# Install standalone Codex for direct CLI review, without prompting or launching a session.
+curl -fsSL https://chatgpt.com/codex/install.sh | CODEX_NON_INTERACTIVE=1 sh
